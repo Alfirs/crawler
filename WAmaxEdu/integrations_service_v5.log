@@ -1,0 +1,114 @@
+
+> wamaxedu-platform@1.0.0 start:integrations
+> tsx ./src/modules/integrations/src/main.ts
+
+{"level":"info","time":"2026-01-16T20:01:51.596Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Redis disabled (using memory store)"}
+{"level":"info","time":"2026-01-16T20:01:51.599Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Integrations Service started on port 3000"}
+{"level":"info","time":"2026-01-16T20:01:52.649Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:01:52.653Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 39db6d9c-2117-4394-913f-50f8862bca67"}
+{"level":"info","time":"2026-01-16T20:02:00.815Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:02:00.822Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 8a5d3ad0-01ef-4527-afa4-8771210f7fe2"}
+{"level":"info","time":"2026-01-16T20:02:00.825Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:02:00.832Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 82d48bb5-8ac7-4305-9a2a-fb2537fd28af"}
+{"level":"info","time":"2026-01-16T20:02:21.198Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:02:21.202Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: c04dd7a9-a5ba-44d8-b7d1-bbec85181f51"}
+{"level":"info","time":"2026-01-16T20:02:29.338Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:02:29.343Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: bd12e078-c865-46ff-970b-aae166d7f661"}
+{"level":"info","time":"2026-01-16T20:02:29.346Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:02:29.351Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 00eb8ec7-667f-4017-8dca-82f686e2ce45"}
+{"level":"info","time":"2026-01-16T20:02:43.121Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:02:43.125Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 2ae15935-0a46-41e9-88e1-c5fa679fd4a5"}
+{"level":"info","time":"2026-01-16T20:02:43.128Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:02:43.131Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 7227c7ff-baf6-4f33-b1a2-a0b628e21f9d"}
+{"level":"info","time":"2026-01-16T20:03:25.410Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:03:25.414Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: e17652d6-01ee-415a-a523-f7534d80c2d5"}
+{"level":"info","time":"2026-01-16T20:03:25.418Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:03:25.424Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: db4c2be6-f878-4da8-9af6-cc98c5a985d5"}
+{"level":"info","time":"2026-01-16T20:04:07.672Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:04:07.676Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 2325cc3d-af14-4137-bd56-e887a2fc89f4"}
+{"level":"info","time":"2026-01-16T20:04:07.679Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:04:07.683Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: eb03f4f4-1244-4202-9532-7b5d7005cd03"}
+{"level":"info","time":"2026-01-16T20:04:50.004Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:04:50.008Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 0547d839-18b2-47e8-b930-073544131785"}
+{"level":"info","time":"2026-01-16T20:04:50.011Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:04:50.016Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: b68be0a6-20a9-4dac-9cc3-66cffcdbbc55"}
+{"level":"info","time":"2026-01-16T20:05:32.276Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:05:32.281Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: db65b36b-11d3-44ca-b642-bf14d678e8bf"}
+{"level":"info","time":"2026-01-16T20:05:32.287Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:05:32.291Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 2f66221f-e0c2-498a-b83f-60d37714c150"}
+{"level":"info","time":"2026-01-16T20:06:14.595Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:06:14.599Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: e6b99c91-a20f-4e21-8007-2e50f310e310"}
+{"level":"info","time":"2026-01-16T20:06:14.602Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:06:14.605Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 5d7507ea-d135-49b7-b9aa-106f08d68914"}
+{"level":"info","time":"2026-01-16T20:06:56.894Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:06:56.900Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 9bd55bae-5bf3-4083-8661-03fe0eb86e0c"}
+{"level":"info","time":"2026-01-16T20:06:56.907Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:06:56.911Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 7d40f783-e9cc-4315-a4b9-4dbb42b08288"}
+{"level":"info","time":"2026-01-16T20:07:39.214Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:07:39.218Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: b76fec01-5eb9-46b9-bc32-f940e4c273ed"}
+{"level":"info","time":"2026-01-16T20:07:39.220Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:07:39.224Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: e42c1bc3-388d-4e20-93d9-346392c3174e"}
+{"level":"info","time":"2026-01-16T20:08:21.475Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:08:21.479Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 5e492755-0d7c-4d9e-9f7b-c6b393eaad56"}
+{"level":"info","time":"2026-01-16T20:08:21.481Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:08:21.485Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 85d21e55-0a33-48bf-8c80-0102625815ca"}
+{"level":"info","time":"2026-01-16T20:09:03.763Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:09:03.767Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 12b097b8-ceab-482c-82ce-8abca1c6af53"}
+{"level":"info","time":"2026-01-16T20:09:03.770Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:09:03.774Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: d85121b6-0bbe-4615-bb60-7e0132c258d6"}
+{"level":"info","time":"2026-01-16T20:09:46.083Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:09:46.087Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 8b6424e6-53cb-439a-b211-63f1ceb31266"}
+{"level":"info","time":"2026-01-16T20:09:46.089Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:09:46.093Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 259777f1-4b88-4053-9d8b-bd2cdda01b47"}
+{"level":"info","time":"2026-01-16T20:10:28.389Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:10:28.393Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: b69b1b9b-23ed-47ea-8c02-10af4f39f045"}
+{"level":"info","time":"2026-01-16T20:10:28.396Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:10:28.400Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 5a6c7ae3-f66c-4898-b037-6081bc20f736"}
+{"level":"info","time":"2026-01-16T20:11:10.694Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:11:10.698Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 206cdce8-6d64-4675-b717-c8a1a9a94c76"}
+{"level":"info","time":"2026-01-16T20:11:10.700Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:11:10.703Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 0d447e73-02f6-47ee-99c9-2803870a4a17"}
+{"level":"info","time":"2026-01-16T20:11:53.033Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:11:53.037Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 5a15dc61-3994-4a76-aacb-f98de0361166"}
+{"level":"info","time":"2026-01-16T20:11:53.041Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:11:53.045Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 6b11a471-c8a1-4e3c-acec-3ecd463bcac4"}
+{"level":"info","time":"2026-01-16T20:12:35.352Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:12:35.356Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: f0fa24f1-9a2b-40fd-88e1-79210baa7313"}
+{"level":"info","time":"2026-01-16T20:12:35.359Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:12:35.363Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 2d5792f6-0c70-4adb-9608-f4b570f4cd61"}
+{"level":"info","time":"2026-01-16T20:13:17.600Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:13:17.605Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 5c110bea-3c4c-4e6d-b8d0-c455ef647a6e"}
+{"level":"info","time":"2026-01-16T20:13:17.608Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:13:17.612Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: b05ed964-882a-4a1f-87da-27915a0b7a4a"}
+{"level":"info","time":"2026-01-16T20:13:59.900Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:13:59.905Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 22b0f249-b0c3-4ead-b826-3438487554c8"}
+{"level":"info","time":"2026-01-16T20:13:59.907Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:13:59.912Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: f9acacb1-b1c2-4bff-b9bb-3ccb35ea65ea"}
+{"level":"info","time":"2026-01-16T20:14:42.159Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:14:42.163Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: fe033cc6-ff69-4361-8876-69b7f7790072"}
+{"level":"info","time":"2026-01-16T20:14:42.166Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:14:42.170Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 27962d67-2d9f-4474-9748-570d653184e3"}
+{"level":"info","time":"2026-01-16T20:15:24.476Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:15:24.481Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 21f5fb0c-c70c-4a73-8cc0-b370fd399333"}
+{"level":"info","time":"2026-01-16T20:15:24.483Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:15:24.488Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: c440006c-92f9-4af4-8591-eab624ba5ad1"}
+{"level":"info","time":"2026-01-16T20:16:06.805Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:16:06.809Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: ea3c853c-f075-427e-bdbb-c0931adb7b9f"}
+{"level":"info","time":"2026-01-16T20:16:06.812Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:16:06.817Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 49eeeae1-7106-41a6-b65e-07cb19664968"}
+{"level":"info","time":"2026-01-16T20:16:49.118Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:16:49.122Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: f0fbc6dd-1982-49dd-a18d-e2074247d4a7"}
+{"level":"info","time":"2026-01-16T20:16:49.124Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:16:49.129Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: a240b4b8-e2c9-45ce-a028-8d529210b10e"}
+{"level":"info","time":"2026-01-16T20:17:31.374Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:17:31.378Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 799c4c39-c097-452b-ba6e-f1a010a38210"}
+{"level":"info","time":"2026-01-16T20:17:31.381Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:17:31.385Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 4c8b5a6c-bb29-434c-9ee7-954df3883bef"}
+{"level":"info","time":"2026-01-16T20:18:13.678Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:18:13.683Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 6433de9f-4be5-4b90-8b25-d53a2a49634f"}
+{"level":"info","time":"2026-01-16T20:18:13.686Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:18:13.691Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: c270e373-152f-437b-a269-c47acf20cdc1"}
+{"level":"info","time":"2026-01-16T20:18:55.983Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:18:55.987Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: 81e718c3-26b2-4d1f-8c29-47ef65dcf55b"}
+{"level":"info","time":"2026-01-16T20:18:55.990Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Processing inbound webhook"}
+{"level":"info","time":"2026-01-16T20:18:55.995Z","pid":6704,"hostname":"DESKTOP-P62E320","msg":"Published MessageInboundReceived event: cd4d8c44-21c2-4ac3-93b1-5f873d57274c"}

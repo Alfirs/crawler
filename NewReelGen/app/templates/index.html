@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Carousel Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px; margin: 40px auto; padding: 0 16px; }
+    h1 { margin: 0 0 16px; }
+    form { display: grid; gap: 10px; margin-bottom: 24px; }
+    input, button { padding: 10px 12px; font-size: 16px; }
+    button { background: #2f6f4a; color: #fff; border: 0; cursor: pointer; }
+    .msg { margin: 12px 0; color: #2f6f4a; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .card { border: 1px solid #ddd; padding: 8px; border-radius: 8px; }
+    .thumb { width: 100%; height: auto; display:block; border-radius:6px; }
+    .muted { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>🖼️ Генерация Instagram-карусели</h1>
+
+  <form method="post" action="/generate">
+    <label>Тема</label>
+    <input type="text" name="topic" value="10 ошибок предпринимателей" required />
+
+    <label>Количество слайдов (1–20)</label>
+    <input type="number" name="slides" value="3" min="1" max="20" required />
+
+    <label>Username (водяной знак)</label>
+    <input type="text" name="username" value="@anton" maxlength="32" required />
+
+    <label>Style Seed (опционально)</label>
+    <input type="text" name="style_seed" placeholder="например 42" />
+
+    <button type="submit">Generate</button>
+  </form>
+
+  {% if message %}
+    <div class="msg">{{ message }}</div>
+  {% endif %}
+
+  <h2>Результаты</h2>
+  <div id="grid" class="grid">
+    {% if files and files|length > 0 %}
+      {% for f in files %}
+        {% set src = request.url_for('output', path=f) ~ '?t=' ~ now %}
+        <div class="card">
+          <a href="{{ request.url_for('output', path=f) }}" target="_blank">
+            <img class="thumb" src="{{ src }}" alt="{{ f }}" />
+          </a>
+          <div class="muted">{{ f }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="muted">Здесь появятся готовые слайды.</div>
+    {% endif %}
+  </div>
+
+  <script>
+    // Автообновление списка каждые 5 секунд в течение 60 секунд после генерации.
+    const grid = document.getElementById('grid');
+    const isRunning = {{ 'true' if running else 'false' }};
+    let ticks = 0;
+
+    async function refreshFiles() {
+      try {
+        const res = await fetch('/api/files', { cache: 'no-store' });
+        if (!res.ok) return;
+        const files = await res.json();
+        grid.innerHTML = files.length ? '' : '<div class="muted">Здесь появятся готовые слайды.</div>';
+        const ts = Date.now();
+        for (const f of files) {
+          const href = new URL('{{ request.url_for("output", path="x") }}', window.location.origin);
+          href.pathname = href.pathname.replace(/x$/, f);
+          const src = href.toString() + '?t=' + ts;
+          grid.insertAdjacentHTML('beforeend', `
+            <div class="card">
+              <a href="${href}" target="_blank">
+                <img class="thumb" src="${src}" alt="${f}" />
+              </a>
+              <div class="muted">${f}</div>
+            </div>
+          `);
+        }
+      } catch(e) { /* ignore */ }
+    }
+
+    if (isRunning) {
+      const iv = setInterval(() => {
+        ticks++;
+        refreshFiles();
+        if (ticks > 12) clearInterval(iv);
+      }, 5000);
+    }
+  </script>
+</body>
+</html>

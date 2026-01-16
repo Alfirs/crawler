@@ -1,0 +1,25 @@
+{
+  "username": "alfirs.py",
+  "slides": [
+    {
+      "type": "cover",
+      "title": "5 ошибок в сверлении отверстий",
+      "bg": {
+        "mode": "photo",
+        "path": "D:\\VsCode\\NewReelsGenerator_port\\output\\style_bg_8678e82f\\background.png"
+      },
+      "img_prompt": "5 ошибок в сверлении отверстий",
+      "text": "5 ошибок в сверлении отверстий"
+    },
+    {
+      "type": "text",
+      "title": "",
+      "bg": {
+        "mode": "photo",
+        "path": "D:\\VsCode\\NewReelsGenerator_port\\output\\style_bg_8678e82f\\background.png"
+      },
+      "img_prompt": "5 ошибок в сверлении отверстий",
+      "text": ""
+    }
+  ]
+}

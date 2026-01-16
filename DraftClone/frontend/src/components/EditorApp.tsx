@@ -1,0 +1,330 @@
+import { useEffect, useMemo, useState } from 'react';
+import { exportPost, fetchPost, savePost } from '../api/posts';
+import { useEditorStore, usePost } from '../state/useEditorStore';
+import { THEMES, TYPOGRAPHY } from '../constants/design';
+import Tabs from './Tabs/Tabs';
+import BottomSheet from './BottomSheet';
+import SlidesPanel from './SlidesPanel';
+import PreviewCanvas from './PreviewCanvas';
+import InfoPanel from './InfoPanel';
+import TemplatesPanel from './panels/TemplatesPanel';
+import BackgroundPanel from './panels/BackgroundPanel';
+import TextPanel from './panels/TextPanel';
+import LayoutPanel from './panels/LayoutPanel';
+import SizePanel from './panels/SizePanel';
+import ExportPanel from './panels/ExportPanel';
+import Toast from './Toast';
+import {
+  TemplateIcon,
+  BackgroundIcon,
+  TextIcon,
+  LayoutIcon,
+  SizeIcon,
+  InfoIcon,
+  ExportIcon
+} from '../icons/BottomBarIcons';
+
+const readBootstrapData = () => {
+  const search = new URLSearchParams(window.location.search);
+  const postId = Number(search.get('postId')) || Number((window as any).DRAFTCLONE_POST_ID || 0);
+  const token = search.get('token') || (window as any).DRAFTCLONE_TOKEN || '';
+  return { postId, token };
+};
+
+const STATIC_TABS = ['Templates', 'Background', 'Text', 'Layout', 'Size', 'Info', 'Export'] as const;
+type TabId = (typeof STATIC_TABS)[number];
+
+const EditorApp = () => {
+  const [zoom, setZoom] = useState(1);
+  const [status, setStatus] = useState<{ loading: boolean; error?: string }>({
+    loading: true
+  });
+  const [toast, setToast] = useState<{ message: string; kind?: 'info' | 'error' } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [autoTimestamp, setAutoTimestamp] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>('Templates');
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const post = usePost();
+  const setPost = useEditorStore((state) => state.setPost);
+  const currentSlide = useEditorStore((state) =>
+    state.post?.slides.find((slide) => slide.id === state.currentSlideId)
+  );
+  const setCurrentSlide = useEditorStore((state) => state.setCurrentSlide);
+  const duplicateSlide = useEditorStore((state) => state.duplicateSlide);
+  const deleteSlide = useEditorStore((state) => state.deleteSlide);
+  const undo = useEditorStore((state) => state.undo);
+  const redo = useEditorStore((state) => state.redo);
+  const canUndo = useEditorStore((state) => state.history.length > 0);
+  const canRedo = useEditorStore((state) => state.future.length > 0);
+  const dirty = useEditorStore((state) => state.dirty);
+  const markSaved = useEditorStore((state) => state.markSaved);
+  const revision = useEditorStore((state) => state.revision);
+  const applyToAll = useEditorStore((state) => state.post?.applyToAll ?? false);
+  const setApplyToAll = useEditorStore((state) => state.setApplyToAll);
+
+  useEffect(() => {
+    const { postId, token } = readBootstrapData();
+    if (!postId || !token) {
+      setStatus({ loading: false, error: 'Missing postId/token' });
+      return;
+    }
+
+    fetchPost(postId, token)
+      .then((data) => {
+        setPost({ ...data, token });
+        setStatus({ loading: false });
+      })
+      .catch((err) => setStatus({ loading: false, error: err.message }));
+  }, [setPost]);
+
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (dirty) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const timer = window.setTimeout(() => {
+      void saveDraft(true);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [dirty, revision]);
+
+  const notify = (message: string, kind: 'info' | 'error' = 'info') => {
+    setToast({ message, kind });
+    window.setTimeout(() => setToast(null), 2200);
+  };
+
+  const tabItems = useMemo(
+    () => [
+      { id: 'Templates', label: 'Шаблон', icon: <TemplateIcon /> },
+      {
+        id: 'Background',
+        label: 'Фон',
+        icon: <BackgroundIcon />,
+        badge: post ? THEMES[post.themeId]?.label || post.themeId : undefined
+      },
+      {
+        id: 'Text',
+        label: 'Текст',
+        icon: <TextIcon />,
+        badge: post ? TYPOGRAPHY[post.typographyId]?.label || post.typographyId : undefined
+      },
+      {
+        id: 'Layout',
+        label: 'Макет',
+        icon: <LayoutIcon />,
+        badge: currentSlide?.layout?.toUpperCase(),
+        badgeTitle: currentSlide?.templateId
+      },
+      {
+        id: 'Size',
+        label: 'Размер',
+        icon: <SizeIcon />,
+        badge: post?.aspect.toUpperCase()
+      },
+      { id: 'Info', label: 'Инфо', icon: <InfoIcon /> },
+      { id: 'Export', label: 'Экспорт', icon: <ExportIcon /> }
+    ],
+    [post, currentSlide]
+  );
+
+  useEffect(() => {
+    if (!tabItems.some((tab) => tab.id === activeTab)) {
+      setActiveTab('Templates');
+    }
+  }, [tabItems, activeTab]);
+
+  const saveDraft = async (auto = false) => {
+    if (saving || !post) return;
+    try {
+      setSaving(true);
+      const updated = await savePost(post);
+      setPost({ ...updated, token: post.token });
+      markSaved();
+      if (auto) {
+        setAutoTimestamp(Date.now());
+      } else {
+        notify('Draft saved');
+      }
+    } catch (err) {
+      console.error(err);
+      notify(auto ? 'Auto-save failed' : 'Failed to save', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleExport = async (options: { format: 'png' | 'pdf'; range: 'all' | 'current' }) => {
+    if (!post) return;
+    try {
+      const message = await exportPost(post, options);
+      notify(message);
+    } catch (err) {
+      console.error(err);
+      notify('Export failed', 'error');
+    }
+  };
+
+  if (status.loading) {
+    return <div className="loading">Loading editor…</div>;
+  }
+
+  if (status.error || !post) {
+    return <div className="error">{status.error ?? 'Post not found'}</div>;
+  }
+
+  const slides = post.slides;
+  const currentIndex = currentSlide ? slides.findIndex((s) => s.id === currentSlide.id) : -1;
+  const goToSlide = (offset: number) => {
+    if (currentIndex === -1) return;
+    const target = currentIndex + offset;
+    if (target < 0 || target >= slides.length) return;
+    setCurrentSlide(slides[target].id);
+  };
+  const handleDuplicate = () => currentSlide && duplicateSlide(currentSlide.id);
+  const handleDelete = () => {
+    if (!currentSlide || slides.length === 1) return;
+    deleteSlide(currentSlide.id);
+  };
+
+  const sheetTitleMap: Record<TabId, string> = {
+    Templates: 'Шаблон',
+    Background: 'Фон',
+    Text: 'Текст',
+    Layout: 'Макет',
+    Size: 'Размер',
+    Info: 'Инфо',
+    Export: 'Экспорт'
+  };
+
+  const renderSheetContent = () => {
+    switch (activeTab) {
+      case 'Templates':
+        return <TemplatesPanel />;
+      case 'Background':
+        return <BackgroundPanel />;
+      case 'Text':
+        return <TextPanel />;
+      case 'Layout':
+        return <LayoutPanel />;
+      case 'Size':
+        return <SizePanel />;
+      case 'Info':
+        return <InfoPanel onSave={() => void saveDraft(false)} notify={notify} />;
+      case 'Export':
+        return <ExportPanel onExport={handleExport} />;
+      default:
+        return null;
+    }
+  };
+
+  const handleTabChange = (tabId: string) => {
+    if (activeTab === tabId && sheetOpen) {
+      setSheetOpen(false);
+      return;
+    }
+    setActiveTab(tabId as TabId);
+    setSheetOpen(true);
+  };
+
+  const handleSheetApply = () => {
+    if (activeTab === 'Info') {
+      void saveDraft(false);
+    }
+  };
+
+  return (
+    <div className="editor-shell">
+      <header className="editor-header">
+        <div>
+          <p className="muted">Post #{post.id}</p>
+          <h1>Carousel workspace</h1>
+        </div>
+        <div className="header-actions">
+          <span className={dirty || saving ? 'save-status dirty' : 'save-status'}>
+            {saving
+              ? 'Saving…'
+              : dirty
+              ? 'Unsaved changes'
+              : autoTimestamp
+              ? `Auto-saved at ${new Date(autoTimestamp).toLocaleTimeString()}`
+              : 'All changes saved'}
+          </span>
+          <button onClick={undo} disabled={!canUndo}>
+            Undo
+          </button>
+          <button onClick={redo} disabled={!canRedo}>
+            Redo
+          </button>
+          <button onClick={() => void saveDraft(false)}>Save changes</button>
+        </div>
+      </header>
+
+      <div className="editor-stage">
+        <div className="stage-preview">
+          <div className="floating-controls">
+            <button type="button" onClick={() => goToSlide(-1)} disabled={currentIndex <= 0}>
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => goToSlide(1)}
+              disabled={currentIndex === slides.length - 1}
+            >
+              →
+            </button>
+            <span className="divider" />
+            <button type="button" onClick={handleDuplicate}>
+              ⧉
+            </button>
+            <button type="button" onClick={handleDelete} disabled={slides.length === 1}>
+              ✕
+            </button>
+          </div>
+          <div className="zoom-controls">
+            <span>Zoom</span>
+            <button type="button" onClick={() => setZoom((value) => Math.max(0.5, +(value - 0.1).toFixed(2)))}>-</button>
+            <input
+              type="range"
+              min="50"
+              max="150"
+              value={Math.round(zoom * 100)}
+              onChange={(event) => setZoom(Number(event.target.value) / 100)}
+            />
+            <button type="button" onClick={() => setZoom((value) => Math.min(1.5, +(value + 0.1).toFixed(2)))}>+</button>
+            <span>{Math.round(zoom * 100)}%</span>
+          </div>
+          <PreviewCanvas aiHighlightField={null} zoom={zoom} />
+        </div>
+        <div className="slides-row">
+          <SlidesPanel />
+        </div>
+      </div>
+
+      <Tabs items={tabItems} active={activeTab} onChange={handleTabChange} />
+      <BottomSheet
+        open={sheetOpen}
+        title={sheetTitleMap[activeTab]}
+        applyAllValue={applyToAll}
+        onToggleApply={(value) => setApplyToAll(value)}
+        onClose={() => setSheetOpen(false)}
+        onApply={handleSheetApply}
+      >
+        {renderSheetContent()}
+      </BottomSheet>
+      {toast && <Toast message={toast.message} kind={toast.kind} />}
+    </div>
+  );
+};
+
+export default EditorApp;
+
+

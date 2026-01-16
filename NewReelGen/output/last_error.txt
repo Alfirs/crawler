@@ -1,0 +1,1 @@
+Error code: 500 - {'error': {'message': 'Что-то пошло не так, попробуйте позже (request id: 20251112001618910580694lYSWhOIG)', 'type': 'neuroapi_error', 'param': 'size', 'code': 'internal_error'}}

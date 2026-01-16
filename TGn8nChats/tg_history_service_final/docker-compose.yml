@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  tg-history-service:
+    build: .
+    ports:
+      - "8088:8088"
+    environment:
+      TG_API_ID: ${TG_API_ID}
+      TG_API_HASH: ${TG_API_HASH}
+      TG_SESSION_STRING: ${TG_SESSION_STRING}
+      TG_HISTORY_API_KEY: ${TG_HISTORY_API_KEY}
+    restart: unless-stopped

@@ -1,0 +1,26 @@
+[
+  {
+    "index": 1,
+    "path": "output\\slide_1.jpg",
+    "topic": "10 ошибок предпринимателей",
+    "username": "@alfirs.py",
+    "size": "1024x1024",
+    "model": "gpt-image-1"
+  },
+  {
+    "index": 2,
+    "path": "output\\slide_2.jpg",
+    "topic": "10 ошибок предпринимателей",
+    "username": "@alfirs.py",
+    "size": "1024x1024",
+    "model": "gpt-image-1"
+  },
+  {
+    "index": 3,
+    "path": "output\\slide_3.jpg",
+    "topic": "10 ошибок предпринимателей",
+    "username": "@alfirs.py",
+    "size": "1024x1024",
+    "model": "gpt-image-1"
+  }
+]

@@ -1,0 +1,25 @@
+INFO | 2025-10-25 22:02:23 | uvicorn.error | Will watch for changes in these directories: ['D:\\VsCode\\NewReelsGenerator_port']
+INFO | 2025-10-25 22:02:23 | uvicorn.error | Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO | 2025-10-25 22:02:23 | uvicorn.error | Started reloader process [20768] using StatReload
+INFO | 2025-10-25 22:02:25 | uvicorn.error | Started server process [7856]
+INFO | 2025-10-25 22:02:25 | uvicorn.error | Waiting for application startup.
+INFO | 2025-10-25 22:02:25 | uvicorn.error | Application startup complete.
+WARNING | 2025-10-25 22:19:54 | uvicorn.error | StatReload detected changes in 'app\routes\ui_carousel.py'. Reloading...
+INFO | 2025-10-25 22:29:58 | uvicorn.error | Shutting down
+INFO | 2025-10-25 22:29:59 | uvicorn.error | Waiting for application shutdown.
+INFO | 2025-10-25 22:29:59 | uvicorn.error | Application shutdown complete.
+INFO | 2025-10-25 22:29:59 | uvicorn.error | Finished server process [7856]
+INFO | 2025-10-25 22:33:28 | uvicorn.error | Will watch for changes in these directories: ['D:\\VsCode\\NewReelsGenerator_port']
+INFO | 2025-10-25 22:33:28 | uvicorn.error | Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO | 2025-10-25 22:33:28 | uvicorn.error | Started reloader process [15220] using StatReload
+INFO | 2025-10-25 22:33:30 | uvicorn.error | Started server process [16536]
+INFO | 2025-10-25 22:33:30 | uvicorn.error | Waiting for application startup.
+INFO | 2025-10-25 22:33:30 | uvicorn.error | Application startup complete.
+WARNING | 2025-10-25 22:35:34 | uvicorn.error | StatReload detected changes in 'app\carousel\cli.py'. Reloading...
+INFO | 2025-10-25 22:36:04 | uvicorn.error | Shutting down
+INFO | 2025-10-25 22:36:04 | uvicorn.error | Waiting for application shutdown.
+INFO | 2025-10-25 22:36:04 | uvicorn.error | Application shutdown complete.
+INFO | 2025-10-25 22:36:04 | uvicorn.error | Finished server process [16536]
+INFO | 2025-10-25 22:36:06 | uvicorn.error | Started server process [12968]
+INFO | 2025-10-25 22:36:06 | uvicorn.error | Waiting for application startup.
+INFO | 2025-10-25 22:36:06 | uvicorn.error | Application startup complete.

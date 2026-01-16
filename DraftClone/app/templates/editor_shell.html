@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DraftClone Editor</title>
+    <link rel="stylesheet" href="/static/frontend/assets/index.css" />
+    <script>
+      window.DRAFTCLONE_POST_ID = {{ post_id }};
+      window.DRAFTCLONE_TOKEN = "{{ token }}";
+    </script>
+  </head>
+  <body>
+    <div id="root">Loading editor…</div>
+    <script type="module" src="/static/frontend/assets/index.js"></script>
+  </body>
+</html>

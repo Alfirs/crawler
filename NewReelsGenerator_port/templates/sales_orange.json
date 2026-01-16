@@ -1,0 +1,16 @@
+﻿{
+  "name": "sales_orange",
+  "slides": [
+    {"bg": "generate", "role": "cover"},
+    {"bg": "reuse_cover", "role": "list"},
+    {"bg": "reuse_cover", "role": "list"}
+  ],
+  "watermark": "@username",
+  "style_hint": "burnt orange, cinematic light, film grain",
+  "text_style": {
+    "font_family": "DrukWideBold",
+    "font_size": 92,
+    "color": "#ffffff",
+    "align": "left"
+  }
+}

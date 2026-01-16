@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Конструктор шаблонов слайдов</title>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+        
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #ddd;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .header-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn.secondary {
+            background: #6c757d;
+        }
+        
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+        
+        .main {
+            display: flex;
+            height: calc(100vh - 70px);
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #fff;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+        }
+        
+        .canvas-area {
+            flex: 1;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            overflow: auto;
+        }
+        
+        .properties-panel {
+            width: 300px;
+            background: #fff;
+            border-left: 1px solid #ddd;
+            overflow-y: auto;
+        }
+        
+        .panel-section {
+            padding: 1rem;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .panel-section h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        
+        .canvas {
+            width: 540px;
+            height: 675px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .template-list {
+            padding: 1rem;
+        }
+        
+        .template-item {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .template-item:hover {
+            background: #e9ecef;
+        }
+        
+        .template-item.active {
+            background: #cce5ff;
+            border-color: #007bff;
+        }
+        
+        .template-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .template-desc {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.25rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .zone-item {
+            background: rgba(0,123,255,0.1);
+            border: 2px solid #007bff;
+            position: absolute;
+            cursor: move;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: #007bff;
+            font-weight: 500;
+        }
+        
+        .zone-item.selected {
+            border-color: #ff6b6b;
+            background: rgba(255,107,107,0.1);
+            color: #ff6b6b;
+        }
+        
+        .zone-item.text-zone {
+            border-color: #28a745;
+            background: rgba(40,167,69,0.1);
+            color: #28a745;
+        }
+        
+        .zone-item.image-zone {
+            border-color: #ffc107;
+            background: rgba(255,193,7,0.1);
+            color: #ffc107;
+        }
+        
+        .zone-item.shape-zone {
+            border-color: #6f42c1;
+            background: rgba(111,66,193,0.1);
+            color: #6f42c1;
+        }
+        
+        .toolbar {
+            padding: 1rem;
+            background: #fff;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .toolbar-group {
+            margin-bottom: 1rem;
+        }
+        
+        .toolbar-group h4 {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .toolbar-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .tool-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.2s;
+        }
+        
+        .tool-btn:hover {
+            background: #e9ecef;
+        }
+        
+        .tool-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        
+        .preview-controls {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Конструктор шаблонов</h1>
+        <div class="header-buttons">
+            <button class="btn secondary" onclick="loadTemplate()">Загрузить</button>
+            <button class="btn secondary" onclick="saveTemplate()">Сохранить</button>
+            <button class="btn" onclick="previewTemplate()">Превью</button>
+        </div>
+    </div>
+    
+    <div class="main">
+        <!-- Левая панель - список шаблонов и инструменты -->
+        <div class="sidebar">
+            <div class="panel-section">
+                <h3>Шаблоны</h3>
+                <div id="template-list" class="template-list">
+                    <div class="loading">Загрузка...</div>
+                </div>
+            </div>
+            
+            <div class="toolbar">
+                <div class="toolbar-group">
+                    <h4>Добавить элемент</h4>
+                    <div class="toolbar-buttons">
+                        <button class="tool-btn" onclick="addZone('text')">📝 Текст</button>
+                        <button class="tool-btn" onclick="addZone('image')">🖼️ Изображение</button>
+                        <button class="tool-btn" onclick="addZone('shape')">⬜ Фигура</button>
+                    </div>
+                </div>
+                
+                <div class="toolbar-group">
+                    <h4>Фон слайда</h4>
+                    <div class="toolbar-buttons">
+                        <button class="tool-btn" onclick="setBackground('solid')">Цвет</button>
+                        <button class="tool-btn" onclick="setBackground('gradient')">Градиент</button>
+                        <button class="tool-btn" onclick="setBackground('image')">Изображение</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Центральная область - холст -->
+        <div class="canvas-area">
+            <div class="preview-controls">
+                <select id="slide-selector">
+                    <option value="0">Слайд 1 (Обложка)</option>
+                    <option value="1">Слайд 2 (Контент)</option>
+                </select>
+                <button class="btn secondary" onclick="addSlide()">+ Добавить слайд</button>
+            </div>
+            
+            <div class="canvas" id="canvas">
+                <div class="loading">Выберите шаблон</div>
+            </div>
+        </div>
+        
+        <!-- Правая панель - свойства -->
+        <div class="properties-panel">
+            <div class="panel-section">
+                <h3>Свойства шаблона</h3>
+                <div class="form-group">
+                    <label>ID шаблона:</label>
+                    <input type="text" id="template-id" placeholder="my_template">
+                </div>
+                <div class="form-group">
+                    <label>Название:</label>
+                    <input type="text" id="template-name" placeholder="Мой шаблон">
+                </div>
+                <div class="form-group">
+                    <label>Описание:</label>
+                    <textarea id="template-description" placeholder="Описание шаблона"></textarea>
+                </div>
+            </div>
+            
+            <div class="panel-section" id="zone-properties" style="display: none;">
+                <h3>Свойства элемента</h3>
+                <div id="zone-props-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentTemplate = null;
+        let currentSlideIndex = 0;
+        let selectedZone = null;
+        let nextZoneId = 1;
+        
+        // Загрузка списка шаблонов
+        async function loadTemplates() {
+            try {
+                const response = await fetch('/templates');
+                const data = await response.json();
+                
+                const list = document.getElementById('template-list');
+                list.innerHTML = '';
+                
+                data.templates.forEach(template => {
+                    const item = document.createElement('div');
+                    item.className = 'template-item';
+                    item.onclick = () => selectTemplate(template.id);
+                    item.innerHTML = `
+                        <div class="template-name">${template.name}</div>
+                        <div class="template-desc">${template.description || 'Без описания'}</div>
+                        <div class="template-desc">${template.slides_count} слайдов</div>
+                    `;
+                    list.appendChild(item);
+                });
+            } catch (error) {
+                console.error('Ошибка загрузки шаблонов:', error);
+            }
+        }
+        
+        // Выбор шаблона
+        async function selectTemplate(templateId) {
+            try {
+                const response = await fetch(`/templates/${templateId}`);
+                const data = await response.json();
+                
+                if (data.ok) {
+                    currentTemplate = data.template;
+                    updateUI();
+                    renderCanvas();
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки шаблона:', error);
+            }
+        }
+        
+        // Обновление UI
+        function updateUI() {
+            if (!currentTemplate) return;
+            
+            document.getElementById('template-id').value = currentTemplate.id;
+            document.getElementById('template-name').value = currentTemplate.name;
+            document.getElementById('template-description').value = currentTemplate.description || '';
+            
+            // Обновляем селектор слайдов
+            const selector = document.getElementById('slide-selector');
+            selector.innerHTML = '';
+            currentTemplate.slides.forEach((slide, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `Слайд ${index + 1} (${slide.name})`;
+                selector.appendChild(option);
+            });
+            selector.value = currentSlideIndex;
+            
+            // Подсвечиваем активный шаблон
+            document.querySelectorAll('.template-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const activeItem = Array.from(document.querySelectorAll('.template-item'))
+                .find(item => item.onclick.toString().includes(currentTemplate.id));
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+        }
+        
+        // Рендер холста
+        function renderCanvas() {
+            const canvas = document.getElementById('canvas');
+            canvas.innerHTML = '';
+            
+            if (!currentTemplate || !currentTemplate.slides[currentSlideIndex]) {
+                canvas.innerHTML = '<div class="loading">Слайд не найден</div>';
+                return;
+            }
+            
+            const slide = currentTemplate.slides[currentSlideIndex];
+            
+            // Устанавливаем фон
+            setCanvasBackground(slide.background);
+            
+            // Рендерим зоны
+            slide.zones.forEach(zone => {
+                renderZone(zone);
+            });
+        }
+        
+        // Установка фона холста
+        function setCanvasBackground(background) {
+            const canvas = document.getElementById('canvas');
+            
+            if (background.type === 'solid') {
+                canvas.style.background = background.color;
+            } else if (background.type === 'gradient') {
+                const colors = background.colors.join(', ');
+                canvas.style.background = `linear-gradient(${background.direction === 'horizontal' ? 'to right' : 'to bottom'}, ${colors})`;
+            } else {
+                canvas.style.background = '#f0f0f0';
+            }
+        }
+        
+        // Рендер зоны
+        function renderZone(zone) {
+            const canvas = document.getElementById('canvas');
+            const zoneEl = document.createElement('div');
+            
+            // Масштабирование (холст 540x675, реальный размер 1080x1350)
+            const scale = 0.5;
+            
+            zoneEl.className = `zone-item ${zone.type}-zone`;
+            zoneEl.style.left = (zone.x * scale) + 'px';
+            zoneEl.style.top = (zone.y * scale) + 'px';
+            zoneEl.style.width = (zone.width * scale) + 'px';
+            zoneEl.style.height = (zone.height * scale) + 'px';
+            
+            // Содержимое зоны
+            if (zone.type === 'text') {
+                zoneEl.textContent = zone.content.substring(0, 20) + '...';
+            } else if (zone.type === 'image') {
+                zoneEl.textContent = '🖼️ Изображение';
+            } else if (zone.type === 'shape') {
+                zoneEl.textContent = zone.shape_type;
+            }
+            
+            zoneEl.onclick = (e) => {
+                e.stopPropagation();
+                selectZone(zone, zoneEl);
+            };
+            
+            canvas.appendChild(zoneEl);
+        }
+        
+        // Выбор зоны
+        function selectZone(zone, element) {
+            // Убираем выделение со всех зон
+            document.querySelectorAll('.zone-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Выделяем текущую зону
+            element.classList.add('selected');
+            selectedZone = zone;
+            
+            showZoneProperties(zone);
+        }
+        
+        // Показать свойства зоны
+        function showZoneProperties(zone) {
+            const panel = document.getElementById('zone-properties');
+            const content = document.getElementById('zone-props-content');
+            
+            panel.style.display = 'block';
+            
+            let html = `
+                <div class="form-group">
+                    <label>ID:</label>
+                    <input type="text" value="${zone.id}" onchange="updateZoneProp('id', this.value)">
+                </div>
+                <div class="form-group">
+                    <label>X:</label>
+                    <input type="number" value="${zone.x}" onchange="updateZoneProp('x', parseInt(this.value))">
+                </div>
+                <div class="form-group">
+                    <label>Y:</label>
+                    <input type="number" value="${zone.y}" onchange="updateZoneProp('y', parseInt(this.value))">
+                </div>
+                <div class="form-group">
+                    <label>Ширина:</label>
+                    <input type="number" value="${zone.width}" onchange="updateZoneProp('width', parseInt(this.value))">
+                </div>
+                <div class="form-group">
+                    <label>Высота:</label>
+                    <input type="number" value="${zone.height}" onchange="updateZoneProp('height', parseInt(this.value))">
+                </div>
+            `;
+            
+            if (zone.type === 'text') {
+                html += `
+                    <div class="form-group">
+                        <label>Текст:</label>
+                        <textarea onchange="updateZoneProp('content', this.value)">${zone.content}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Размер шрифта:</label>
+                        <input type="number" value="${zone.font_size}" onchange="updateZoneProp('font_size', parseInt(this.value))">
+                    </div>
+                    <div class="form-group">
+                        <label>Цвет:</label>
+                        <input type="color" value="${zone.font_color}" onchange="updateZoneProp('font_color', this.value)">
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = html;
+        }
+        
+        // Обновление свойства зоны
+        function updateZoneProp(prop, value) {
+            if (selectedZone) {
+                selectedZone[prop] = value;
+                renderCanvas();
+            }
+        }
+        
+        // Добавление новой зоны
+        function addZone(type) {
+            if (!currentTemplate || !currentTemplate.slides[currentSlideIndex]) return;
+            
+            const slide = currentTemplate.slides[currentSlideIndex];
+            const newZone = {
+                id: `zone_${nextZoneId++}`,
+                type: type,
+                x: 100,
+                y: 100,
+                width: 200,
+                height: 100,
+                z_index: 1
+            };
+            
+            if (type === 'text') {
+                Object.assign(newZone, {
+                    content: 'Новый текст',
+                    font_family: 'Inter-Regular',
+                    font_size: 48,
+                    font_color: '#000000',
+                    align: 'left',
+                    formatting: []
+                });
+            } else if (type === 'image') {
+                Object.assign(newZone, {
+                    source: 'ai_generated',
+                    ai_prompt: 'красивое изображение',
+                    fit_mode: 'cover'
+                });
+            } else if (type === 'shape') {
+                Object.assign(newZone, {
+                    shape_type: 'rectangle',
+                    fill_color: '#007bff'
+                });
+            }
+            
+            slide.zones.push(newZone);
+            renderCanvas();
+        }
+        
+        // Сохранение шаблона
+        async function saveTemplate() {
+            if (!currentTemplate) return;
+            
+            try {
+                const response = await fetch(`/templates/${currentTemplate.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentTemplate)
+                });
+                
+                const result = await response.json();
+                if (result.ok) {
+                    alert('Шаблон сохранён');
+                } else {
+                    alert('Ошибка сохранения: ' + result.error);
+                }
+            } catch (error) {
+                alert('Ошибка сохранения: ' + error.message);
+            }
+        }
+        
+        // Превью шаблона
+        async function previewTemplate() {
+            if (!currentTemplate) return;
+            
+            try {
+                const response = await fetch(`/templates/${currentTemplate.id}/preview`);
+                const result = await response.json();
+                
+                if (result.ok) {
+                    window.open(result.preview_url, '_blank');
+                } else {
+                    alert('Ошибка генерации превью: ' + result.error);
+                }
+            } catch (error) {
+                alert('Ошибка превью: ' + error.message);
+            }
+        }
+        
+        // Обработчики событий
+        document.getElementById('slide-selector').onchange = function() {
+            currentSlideIndex = parseInt(this.value);
+            renderCanvas();
+        };
+        
+        // Снятие выделения при клике на холст
+        document.getElementById('canvas').onclick = function() {
+            document.querySelectorAll('.zone-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            selectedZone = null;
+            document.getElementById('zone-properties').style.display = 'none';
+        };
+        
+        // Инициализация
+        window.onload = function() {
+            loadTemplates();
+        };
+    </script>
+</body>
+</html>
+
+

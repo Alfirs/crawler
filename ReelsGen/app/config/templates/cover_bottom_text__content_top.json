@@ -1,0 +1,49 @@
+{
+  "name": "cover_bottom_text__content_top",
+  "slides": [
+    {
+      "type": "cover",
+      "blocks": [
+        {
+          "type": "text",
+          "box": { "x0": 64, "y0": 870, "x1": 1016, "y1": 1260 },
+          "text": "{{title}}",
+          "align": "center",
+          "style": {
+            "weight": "bold",
+            "color": "#FFFFFF",
+            "stroke": { "width": 2, "color": "#000000", "alpha": 180 },
+            "plate": { "enabled": true, "padding": 28, "alpha": 150, "radius": 18 }
+          }
+        }
+      ]
+    },
+    {
+      "type": "content",
+      "blocks": [
+        {
+          "type": "text",
+          "box": { "x0": 64, "y0": 64, "x1": 1016, "y1": 420 },
+          "text": "{{headline}}",
+          "align": "left",
+          "style": {
+            "weight": "bold",
+            "stroke": { "width": 2, "color": "#000000", "alpha": 180 }
+          }
+        },
+        {
+          "type": "text",
+          "box": { "x0": 64, "y0": 460, "x1": 1016, "y1": 1220 },
+          "text": "{{bullets}}",
+          "align": "left",
+          "style": {
+            "weight": "regular",
+            "line_spacing": 1.2,
+            "stroke": { "width": 1, "color": "#000000", "alpha": 160 }
+          }
+        }
+      ]
+    }
+  ]
+}
+

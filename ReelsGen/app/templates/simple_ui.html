@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор Instagram каруселей</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 3rem;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .step {
+            margin-bottom: 2.5rem;
+        }
+        
+        .step-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .step-number {
+            background: #667eea;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 0.75rem;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        
+        .templates-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .template-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .template-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        }
+        
+        .template-card.selected {
+            border-color: #667eea;
+            background: #f7fafc;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .template-preview {
+            width: 100%;
+            height: 120px;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #667eea;
+        }
+        
+        .template-instagram .template-preview { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .template-photo .template-preview { background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); color: white; }
+        .template-comic .template-preview { background: linear-gradient(135deg, #48cae4 0%, #023047 100%); color: white; }
+        .template-minimal .template-preview { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; }
+        
+        .template-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+        
+        .template-desc {
+            color: #718096;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-input,
+        .form-textarea,
+        .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 120px;
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 1rem;
+        }
+        
+        .generate-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+        
+        .file-upload {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .file-upload:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+        
+        .file-upload.dragover {
+            border-color: #667eea;
+            background: #ebf8ff;
+        }
+        
+        .upload-icon {
+            font-size: 2.5rem;
+            color: #a0aec0;
+            margin-bottom: 0.5rem;
+        }
+        
+        .upload-text {
+            color: #4a5568;
+            font-weight: 500;
+        }
+        
+        .upload-hint {
+            color: #718096;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+        
+        .advanced-link {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .advanced-link a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .advanced-link a:hover {
+            text-decoration: underline;
+        }
+        
+        .selected-template {
+            background: #f0fff4;
+            border: 2px solid #38a169;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        
+        .selected-template.show {
+            display: block;
+        }
+        
+        .selected-template-name {
+            font-weight: 600;
+            color: #2f855a;
+            margin-bottom: 0.25rem;
+        }
+        
+        .selected-template-desc {
+            color: #38a169;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Генератор каруселей Instagram</h1>
+            <p>Создавайте красивые карусели за 3 простых шага</p>
+        </div>
+        
+        <div class="main-content">
+            <form id="generate-form" enctype="multipart/form-data">
+                <!-- Шаг 1: Выбор шаблона -->
+                <div class="step">
+                    <h2 class="step-title">
+                        <span class="step-number">1</span>
+                        Выберите шаблон
+                    </h2>
+                    
+                    <div class="templates-grid" id="templates-grid">
+                        <div class="template-card template-instagram" data-template="instagram_carousel">
+                            <div class="template-preview">📱</div>
+                            <div class="template-name">Instagram карусель</div>
+                            <div class="template-desc">Классический стиль с AI-фонами и комикс-иллюстрациями</div>
+                        </div>
+                        
+                        <div class="template-card template-photo" data-template="photo_overlay">
+                            <div class="template-preview">📸</div>
+                            <div class="template-name">Фото с оверлеем</div>
+                            <div class="template-desc">Для собственных фотографий с градиентным текстом</div>
+                        </div>
+                        
+                        <div class="template-card template-comic" data-template="ai_comic_split">
+                            <div class="template-preview">🎨</div>
+                            <div class="template-name">AI комикс</div>
+                            <div class="template-desc">Картинка сверху, текст снизу - для AI-генерации</div>
+                        </div>
+                        
+                        <div class="template-card template-minimal" data-template="minimal_text">
+                            <div class="template-preview">📝</div>
+                            <div class="template-name">Минимальный</div>
+                            <div class="template-desc">Чистый дизайн без изображений, только типографика</div>
+                        </div>
+                    </div>
+                    
+                    <div class="selected-template" id="selected-template">
+                        <div class="selected-template-name" id="selected-name"></div>
+                        <div class="selected-template-desc" id="selected-desc"></div>
+                    </div>
+                </div>
+                
+                <!-- Шаг 2: Загрузка обложки -->
+                <div class="step">
+                    <h2 class="step-title">
+                        <span class="step-number">2</span>
+                        Загрузите обложку
+                    </h2>
+                    
+                    <div class="file-upload" id="file-upload">
+                        <div class="upload-icon">📁</div>
+                        <div class="upload-text">Нажмите или перетащите изображение</div>
+                        <div class="upload-hint">JPG, PNG до 10MB</div>
+                        <input type="file" id="cover-image" name="cover_image" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+                
+                <!-- Шаг 3: Настройки контента -->
+                <div class="step">
+                    <h2 class="step-title">
+                        <span class="step-number">3</span>
+                        Настройте контент
+                    </h2>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="title">Заголовок карусели</label>
+                        <input type="text" id="title" name="title" class="form-input" 
+                               placeholder="Например: 10 советов по маркетингу" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="prompt">Описание темы (необязательно)</label>
+                        <textarea id="prompt" name="prompt" class="form-textarea" 
+                                  placeholder="Расскажите подробнее о теме карусели. Это поможет AI создать более релевантный контент..."></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label" for="slides-count">Количество слайдов</label>
+                            <select id="slides-count" name="slides_count" class="form-select">
+                                <option value="3">3 слайда</option>
+                                <option value="4">4 слайда</option>
+                                <option value="5" selected>5 слайдов</option>
+                                <option value="6">6 слайдов</option>
+                                <option value="7">7 слайдов</option>
+                                <option value="8">8 слайдов</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group" id="gradient-color-group" style="display: none;">
+                        <label class="form-label" for="gradient-color">Цвет градиента (необязательно)</label>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <input type="color" id="gradient-color" name="gradient_color" 
+                                   value="#667eea" style="width: 80px; height: 40px; border: 2px solid #e2e8f0; border-radius: 8px; cursor: pointer;">
+                            <span style="color: #718096; font-size: 0.9rem;">Выберите цвет для градиентного фона. Если не выбран, будет использован автоматический цвет.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="template-id" name="template_id" value="">
+                
+                <button type="submit" class="generate-btn">
+                    🚀 Создать карусель
+                </button>
+            </form>
+            
+            <div class="advanced-link">
+                <a href="/constructor">🛠️ Расширенный режим (конструктор шаблонов)</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Выбор шаблона
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.addEventListener('click', function() {
+                // Убираем выделение с других карточек
+                document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
+                
+                // Выделяем текущую карточку
+                this.classList.add('selected');
+                
+                // Получаем данные шаблона
+                const templateId = this.dataset.template;
+                const templateName = this.querySelector('.template-name').textContent;
+                const templateDesc = this.querySelector('.template-desc').textContent;
+                
+                // Обновляем скрытое поле
+                document.getElementById('template-id').value = templateId;
+                
+                // Показываем выбранный шаблон
+                const selectedDiv = document.getElementById('selected-template');
+                document.getElementById('selected-name').textContent = templateName;
+                document.getElementById('selected-desc').textContent = templateDesc;
+                selectedDiv.classList.add('show');
+                
+                // Показываем/скрываем поле выбора цвета градиента
+                const gradientColorGroup = document.getElementById('gradient-color-group');
+                if (templateId === 'photo_overlay') {
+                    gradientColorGroup.style.display = 'block';
+                } else {
+                    gradientColorGroup.style.display = 'none';
+                }
+            });
+        });
+        
+        // Выбираем первый шаблон по умолчанию
+        document.querySelector('.template-card').click();
+        
+        // Загрузка файла
+        const fileUpload = document.getElementById('file-upload');
+        const fileInput = document.getElementById('cover-image');
+        
+        fileUpload.addEventListener('click', () => fileInput.click());
+        
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+        
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+        
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateFileUploadText(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                updateFileUploadText(e.target.files[0]);
+            }
+        });
+        
+        function updateFileUploadText(file) {
+            const uploadText = fileUpload.querySelector('.upload-text');
+            const uploadHint = fileUpload.querySelector('.upload-hint');
+            uploadText.textContent = `Выбран: ${file.name}`;
+            uploadHint.textContent = `${(file.size / 1024 / 1024).toFixed(1)} MB`;
+        }
+        
+        // Отправка формы
+        document.getElementById('generate-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const templateId = document.getElementById('template-id').value;
+            if (!templateId) {
+                alert('Выберите шаблон');
+                return;
+            }
+            
+            if (!fileInput.files[0]) {
+                alert('Загрузите изображение для обложки');
+                return;
+            }
+            
+            const formData = new FormData(e.target);
+            const button = document.querySelector('.generate-btn');
+            
+            // Показываем процесс загрузки
+            button.textContent = '⏳ Создаём карусель...';
+            button.disabled = true;
+            
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Показываем успешное сообщение
+                        button.textContent = '✅ Готово!';
+                        
+                        // Открываем страницу просмотра
+                        if (data.view_url) {
+                            setTimeout(() => {
+                                window.location.href = data.view_url;
+                            }, 1000);
+                        } else {
+                            // Или показываем информацию
+                            alert(`Карусель создана!\nСлайдов: ${data.slides_total}\nПапка: ${data.run_dir}`);
+                            setTimeout(() => {
+                                button.textContent = '🚀 Создать карусель';
+                                button.disabled = false;
+                            }, 2000);
+                        }
+                    } else {
+                        throw new Error(data.detail || 'Ошибка генерации');
+                    }
+                } else {
+                    const errorData = await response.json().catch(() => ({ detail: 'Ошибка генерации' }));
+                    throw new Error(errorData.detail || 'Ошибка генерации');
+                }
+            } catch (error) {
+                alert('Произошла ошибка: ' + error.message);
+                button.textContent = '🚀 Создать карусель';
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

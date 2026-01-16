@@ -1,0 +1,411 @@
+import math
+import os
+import random
+import tempfile
+from io import BytesIO
+from typing import List, Optional, Tuple
+
+from PIL import Image, ImageDraw, ImageFont, ImageChops
+
+from . import text_overlay
+
+# Basic helpers
+
+
+def is_light_image(img: Image.Image) -> bool:
+    """Rough brightness check (mean luma > 0.7 = light)."""
+    gray = img.convert("L")
+    hist = gray.histogram()
+    total = sum(hist)
+    mean = sum(i * v for i, v in enumerate(hist)) / total
+    return mean / 255.0 > 0.7
+
+
+def _cover_fit(img: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
+    """Scale and crop image to fill target size without distortion."""
+    w, h = img.size
+    tw, th = target_size
+    ratio = max(tw / w, th / h)
+    new_w, new_h = int(w * ratio), int(h * ratio)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+    left = (new_w - tw) // 2
+    top = (new_h - th) // 2
+    return img.crop((left, top, left + tw, top + th))
+
+
+def _avg_luma(img: Image.Image) -> float:
+    """Average brightness 0..1."""
+    gray = img.convert("L")
+    hist = gray.histogram()
+    total = sum(hist)
+    mean = sum(i * v for i, v in enumerate(hist)) / total
+    return mean / 255.0
+
+
+# Core renderer
+
+
+TEMPLATES = {
+    "user_photo": {"use_upload": True},
+    "green_plain": {"bg_fill": (46, 125, 50)},
+    "green_pattern": {"bg_fill": (46, 125, 50), "pattern": "squiggle"},
+}
+
+
+def _draw_squiggle_pattern(img: Image.Image) -> Image.Image:
+    """Overlay soft squiggle lines on top of the base color."""
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    width, height = img.size
+    amplitude = max(10, int(height * 0.05))
+    alpha = int(255 * 0.08)
+    color = (255, 255, 255, alpha)
+    step = max(12, width // 48)
+
+    for idx in range(3):
+        baseline = height * (0.2 + idx * 0.25)
+        phase = random.random() * math.pi * 2
+        freq = random.uniform(1.5, 2.5)
+        points = []
+        for x in range(0, width + step, step):
+            radians = (x / max(1, width)) * math.pi * freq + phase
+            y = baseline + math.sin(radians) * amplitude
+            points.append((x, y))
+        draw.line(points, fill=color, width=6, joint="curve")
+
+    return Image.alpha_composite(img, overlay)
+
+
+def build_bg_from_template(
+    name: str,
+    upload_path: Optional[str] = None,
+    size: Tuple[int, int] = (1080, 1350),
+) -> Tuple[Optional[str], Optional[Tuple[int, int, int]]]:
+    """
+    Resolve template into either a background image path or a flat fill color.
+
+    Returns:
+        Tuple[bg_image_path, bg_fill]
+    """
+    template = TEMPLATES.get(name)
+    if not template:
+        raise ValueError(f"Unknown background template '{name}'")
+
+    if template.get("use_upload"):
+        if not upload_path or not os.path.exists(upload_path):
+            raise ValueError("Template requires uploaded image")
+        return upload_path, None
+
+    bg_fill = template.get("bg_fill", (255, 255, 255))
+    pattern = template.get("pattern")
+
+    if pattern == "squiggle":
+        img = Image.new("RGBA", size, bg_fill + (255,))
+        img = _draw_squiggle_pattern(img)
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".png")
+        try:
+            img.convert("RGB").save(tmp.name, "PNG")
+            temp_path = tmp.name
+        finally:
+            tmp.close()
+        return temp_path, None
+
+    return None, bg_fill
+
+
+def render_slide_with_bg(
+    text: str,
+    bg_image_path: Optional[str],
+    bg_fill: Optional[Tuple[int, int, int]] = None,
+    size: Tuple[int, int] = (1080, 1350),
+    darken: bool = True,
+    safe_pad: int = 64,
+    watermark: Optional[str] = None,
+    mode: str = "content",
+) -> Image.Image:
+    """Render one slide with optional background image or color fill + text (cover/content layouts)."""
+    img: Image.Image
+    if bg_image_path and os.path.exists(bg_image_path):
+        with Image.open(bg_image_path) as src:
+            img = _cover_fit(src.convert("RGB"), size)
+    else:
+        bg_color = bg_fill or (255, 255, 255)
+        img = Image.new("RGB", size, bg_color)
+
+    if darken and is_light_image(img):
+        overlay = Image.new("RGBA", size, (0, 0, 0, int(255 * 0.3)))
+        img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+
+    t = str(text or "").strip()
+    content_candidates = [
+        {"text": t},
+        {"title": t},
+        {"content": t},
+        {"blocks": [{"type": "text", "text": t}]},
+        {"blocks": [{"type": "title", "text": t}]},
+    ]
+
+    slide = None
+    base_rgb = img.convert("RGB")
+    for candidate in content_candidates:
+        for variant in range(3):
+            try:
+                if variant == 0:
+                    slide_try = text_overlay.render_slide(img, None, candidate, mode=mode)
+                elif variant == 1:
+                    slide_try = text_overlay.render_slide(img, candidate, mode=mode)
+                else:
+                    slide_try = text_overlay.render_slide(candidate, img, mode=mode)
+            except TypeError:
+                continue
+            except ValueError:
+                continue
+
+            if not isinstance(slide_try, Image.Image):
+                continue
+
+            diff = ImageChops.difference(
+                slide_try.convert("RGB"), base_rgb
+            ).getbbox()
+            if diff is not None:
+                slide = slide_try
+                break
+        if slide is not None:
+            break
+
+    if slide is None:
+        slide = _fallback_draw_text(base_rgb.copy(), t, safe_pad, mode=mode)
+
+    if watermark:
+        slide = _apply_watermark(slide, watermark)
+    return slide
+
+
+# Backward-compatibility helpers
+
+CANVAS_SIZE = (1080, 1350)
+
+
+def image_to_bytes(img: Image.Image, fmt: str = "PNG") -> bytes:
+    buffer = BytesIO()
+    img.save(buffer, fmt)
+    return buffer.getvalue()
+
+
+def _make_base_bg(
+    background: Optional[object],
+    size: Tuple[int, int] = CANVAS_SIZE,
+) -> Image.Image:
+    if isinstance(background, Image.Image):
+        img = background.copy()
+    elif isinstance(background, str) and os.path.exists(background):
+        img = Image.open(background).convert("RGB")
+    elif isinstance(background, tuple) and len(background) == 3:
+        img = Image.new("RGB", size, background)
+    else:
+        img = Image.new("RGB", size, (255, 255, 255))
+    return _cover_fit(img, size) if img.size != size else img.convert("RGB")
+
+
+def render_cover(
+    title: str,
+    background: Optional[object] = None,
+    size: Tuple[int, int] = CANVAS_SIZE,
+    darken: bool = True,
+    safe_pad: int = 64,
+    watermark: Optional[str] = None,
+) -> Image.Image:
+    img = _make_base_bg(background, size)
+    if darken and is_light_image(img):
+        overlay = Image.new("RGBA", size, (0, 0, 0, int(255 * 0.35)))
+        img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+    return text_overlay.render_slide(
+        text=title,
+        bg=img,
+        safe_pad=safe_pad,
+        watermark=watermark,
+    )
+
+
+def render_content(
+    texts: List[str],
+    background: Optional[object] = None,
+    size: Tuple[int, int] = CANVAS_SIZE,
+    darken: bool = True,
+    safe_pad: int = 64,
+    watermark: Optional[str] = None,
+) -> List[Image.Image]:
+    slides = []
+    for text in texts:
+        img = _make_base_bg(background, size)
+        if darken and is_light_image(img):
+            overlay = Image.new("RGBA", size, (0, 0, 0, int(255 * 0.25)))
+            img = Image.alpha_composite(img.convert("RGBA"), overlay).convert("RGB")
+        slide = text_overlay.render_slide(
+            text=text,
+            bg=img,
+            safe_pad=safe_pad,
+            watermark=watermark,
+        )
+        slides.append(slide)
+    return slides
+
+
+# Export API
+
+__all__ = [
+    "render_slide_with_bg",
+    "build_bg_from_template",
+    "_cover_fit",
+    "_avg_luma",
+    "is_light_image",
+    "TEMPLATES",
+    "render_cover",
+    "render_content",
+    "image_to_bytes",
+    "CANVAS_SIZE",
+    "_fallback_draw_text",
+]
+
+
+def _apply_watermark(img: Image.Image, text: str) -> Image.Image:
+    """Draw a simple watermark in the lower-right corner."""
+    text = (text or "").strip()
+    if not text:
+        return img
+
+    base = img.convert("RGB")
+    draw = ImageDraw.Draw(base)
+
+    font_size = max(12, int(base.height * 0.02))
+    try:
+        font = ImageFont.truetype("arial.ttf", font_size)
+    except OSError:
+        font = ImageFont.load_default()
+
+    if hasattr(draw, "textbbox"):
+        left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+        text_w, text_h = right - left, bottom - top
+    else:
+        text_w, text_h = font.getsize(text)
+
+    margin = max(8, font_size)
+    x = max(margin, base.width - text_w - margin)
+    y = max(margin, base.height - text_h - margin)
+
+    # shadow
+    draw.text((x + 2, y + 2), text, font=font, fill=(0, 0, 0))
+    # main text
+    draw.text((x, y), text, font=font, fill=(255, 255, 255))
+    return base
+
+
+def _fallback_draw_text(
+    img: Image.Image,
+    text: str,
+    safe_pad: int = 64,
+    mode: str = "content",
+) -> Image.Image:
+    """Draw text manually if text_overlay rendering failed."""
+    text = (text or "").strip()
+    if not text:
+        return img
+
+    base = img.convert("RGBA").copy()
+    draw = ImageDraw.Draw(base, "RGBA")
+    width, height = base.size
+    max_width = max(10, width - safe_pad * 2)
+
+    font_size = max(16, int(min(width, height) * 0.07))
+    font_loader = getattr(text_overlay, "load_font", None)
+
+    def _load_font(size: int):
+        if callable(font_loader):
+            try:
+                return font_loader(size)
+            except Exception:
+                pass
+        try:
+            return ImageFont.truetype("arial.ttf", size)
+        except OSError:
+            return ImageFont.load_default()
+
+    font = _load_font(font_size)
+    words = text.split()
+
+    def measure(lines, fnt):
+        if not lines:
+            return 0, 0
+        bbox = draw.textbbox((0, 0), "Ag", font=fnt)
+        line_height = bbox[3] - bbox[1]
+        total_h = int(line_height * len(lines) * 1.2)
+        max_w = 0
+        for line in lines:
+            bbox = draw.textbbox((0, 0), line, font=fnt)
+            max_w = max(max_w, bbox[2] - bbox[0])
+        return max_w, total_h
+
+    lines = []
+    while font_size >= 12:
+        font = _load_font(font_size)
+        lines = []
+        current = []
+        for word in words:
+            trial = " ".join(current + [word]).strip()
+            if not trial:
+                continue
+            bbox = draw.textbbox((0, 0), trial, font=font)
+            trial_w = bbox[2] - bbox[0]
+            if trial_w <= max_width or not current:
+                current.append(word)
+            else:
+                lines.append(" ".join(current))
+                current = [word]
+        if current:
+            lines.append(" ".join(current))
+        w, h = measure(lines, font)
+        if w <= max_width and len(lines) <= 6:
+            break
+        font_size -= 2
+
+    if not lines:
+        print("[overlay] fallback used (empty lines)")
+        return base
+
+    total_h = measure(lines, font)[1]
+    y_start = safe_pad + max(0, (height - 2 * safe_pad - total_h) // 2)
+    x_start = safe_pad
+
+    bbox = (x_start, y_start, x_start + max_width, y_start + total_h)
+    luma = _avg_luma(base.crop(bbox))
+    if luma > 0.7:
+        plate_pad = 24
+        plate = [
+            max(0, x_start - plate_pad),
+            max(0, y_start - plate_pad),
+            min(width, x_start + max_width + plate_pad),
+            min(height, y_start + total_h + plate_pad),
+        ]
+        draw.rounded_rectangle(
+            plate,
+            radius=20,
+            fill=(0, 0, 0, int(255 * 0.28)),
+        )
+
+    y = y_start
+    bbox = draw.textbbox((0, 0), "Ag", font=font)
+    line_height = bbox[3] - bbox[1]
+    for line in lines:
+        draw.text(
+            (x_start, y),
+            line,
+            font=font,
+            fill=(255, 255, 255),
+            stroke_width=1,
+            stroke_fill=(0, 0, 0),
+        )
+        y += int(line_height * 1.2)
+
+    print("[overlay] fallback used")
+    return base.convert("RGB")
+

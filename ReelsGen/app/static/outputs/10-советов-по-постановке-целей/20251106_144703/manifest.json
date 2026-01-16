@@ -1,0 +1,20 @@
+{
+  "title": "10 советов по постановке целей",
+  "template_id": "photo_overlay",
+  "slides_total": 3,
+  "files": [
+    {
+      "index": 1,
+      "file": "slide_01.png"
+    },
+    {
+      "index": 2,
+      "file": "slide_02.png"
+    },
+    {
+      "index": 3,
+      "file": "slide_03.png"
+    }
+  ],
+  "generation_method": "template_system"
+}

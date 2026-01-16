@@ -1,0 +1,1 @@
+"""Telegram salon bot package."""

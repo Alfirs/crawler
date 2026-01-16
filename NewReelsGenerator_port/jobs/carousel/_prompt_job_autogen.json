@@ -1,0 +1,14 @@
+{
+  "username": "@username",
+  "slides": [
+    {
+      "type": "cover",
+      "title": "5 ошибок в продажах, из-за которых ты теряешь деньги",
+      "bg": {
+        "mode": "photo",
+        "path": "output\\tmp_assets_e0263982"
+      },
+      "img_prompt": "5 ошибок в продажах, из-за которых ты теряешь деньги, cinematic light, high-impact sales poster illustration, brutal high-contrast orange and black palette, dramatic cinematic lighting, hard shadows, aggressive marketing energy, gritty comic-book cover style, no text, no typography, centered composition, cinematic depth, 4k"
+    }
+  ]
+}

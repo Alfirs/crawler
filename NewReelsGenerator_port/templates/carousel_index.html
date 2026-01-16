@@ -1,0 +1,309 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Carousel Generator</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; }
+    form { margin-bottom: 32px; padding: 16px; border: 1px solid #ddd; border-radius: 8px; background: #fdfdfd; }
+    textarea, input[type="text"], input[type="number"] { padding: 8px; margin-top: 4px; width: 100%; box-sizing: border-box; }
+    button { margin-right: 12px; padding: 8px 14px; }
+    .notice { margin: 16px 0; padding: 12px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 6px; }
+    .warning { background: #fff3cd; border-color: #ffe08a; }
+    .templates { margin-top: 32px; }
+    .template-card { border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin-bottom: 16px; background: #fff; }
+    .template-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; }
+    .template-actions form { display: inline-block; margin-right: 8px; }
+    .preview img { margin-right: 8px; border-radius: 6px; border: 1px solid #ddd; }
+  </style>
+</head>
+<body>
+  <h3>Automatic Carousel Generator</h3>
+
+  {% if message %}
+    <div class="notice">{{ message }}</div>
+  {% endif %}
+  {% if img_warning %}
+    <div class="notice warning">Generated with the default gradient background. Upload a style reference to personalise the visuals.</div>
+  {% endif %}
+
+  <form action="/carousel" method="post" enctype="multipart/form-data">
+    {% if selected_template %}
+      <input type="hidden" name="template_name" value="{{ selected_template.name }}">
+    {% endif %}
+
+    <label for="idea">Carousel idea (1-2 sentences)</label><br>
+    <textarea id="idea" name="idea" rows="3" placeholder="e.g. 5 mistakes in sales that cost you money" required>{{ selected_template.base_prompt if selected_template else '' }}</textarea><br><br>
+
+    <label for="style_image">Style reference image</label><br>
+    <input type="file" id="style_image" name="style_image" accept="image/*"><br><br>
+
+    <label for="slides_count">Number of slides</label><br>
+    <input id="slides_count" type="number" name="slides_count" value="{{ selected_template.slides_count if selected_template else 4 }}" min="1" max="20"><br><br>
+
+    <label for="username">Watermark (@username in footer)</label><br>
+    <input id="username" type="text" name="username" placeholder="@username" value="{{ selected_template.username if selected_template else '' }}"><br><br>
+
+    <div class="actions">
+      <button type="submit" formaction="/save_template" name="action" value="save">Save as template</button>
+      <button type="submit">Generate now</button>
+      <button type="submit" formaction="/save_template" name="auto_daily" value="on">Enable auto-generation</button>
+    </div>
+    <p style="font-size:12px; color:#666; margin-top:8px;">
+      <strong>"Save as template"</strong> — stores the current settings (style reference, text areas, username, slide count) as a preset for future automated runs.<br>
+      <strong>"Generate now"</strong> — creates a single carousel for this idea immediately and shows the preview below.<br>
+      <strong>"Enable auto-generation"</strong> — schedules the template with AutoGenerator; new carousels will be produced daily and written to <code>output/</code>.
+    </p>
+  </form>
+
+  {% if result %}
+    <h4>Preview</h4>
+    <div class="preview" style="margin-bottom:12px;">
+      {% for img in result.previews %}
+        <img src="{{ img }}" width="200">
+      {% endfor %}
+    </div>
+    <div style="font-size:12px; color:#666;">{{ result.message }}</div>
+  {% endif %}
+
+  {% if result and result.slides_debug %}
+    <div style="margin-top:24px; padding:16px; background:#111; color:#fff; border-radius:8px; font-family: monospace; font-size:12px; line-height:1.5;">
+      <div style="font-weight:bold; margin-bottom:8px;">Debug: generated slide content</div>
+      {% for slide in result.slides_debug %}
+        <div style="margin-bottom:16px;">
+          <div>[{{ loop.index }}] ({{ slide["type"] }}) {{ slide["title"] }}</div>
+          {% if slide["items"] %}
+            <ul style="margin:4px 0 0 16px; padding:0;">
+              {% for it in slide["items"] %}
+                <li>- {{ it }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          {% if slide["body"] %}
+            <div>{{ slide["body"] }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+
+  <hr style="margin: 40px 0; border: 1px solid #ddd;">
+  
+  <section class="style-from-photo-section">
+    <h3 style="color: #2563eb;">🎨 Style-from-Photo (1+N) Mode</h3>
+    <p style="font-size:14px; color:#666; margin-bottom:20px;">
+      Upload one photo → system generates N-1 images in the same style + creates a carousel.<br>
+      <strong>Slide #1</strong>: your original image. <strong>Slides 2..N</strong>: AI-generated in style.
+    </p>
+    
+    <form id="styleFromPhotoForm" enctype="multipart/form-data" method="post" action="/api/carousel/generate?mode=style_from_photo">
+      <input type="hidden" name="mode" value="style_from_photo">
+      
+      <label for="sfp_idea">Carousel idea (1-2 sentences)</label><br>
+      <textarea id="sfp_idea" name="idea" rows="3" placeholder="e.g. 5 mistakes in sales that cost you money" required></textarea><br><br>
+      
+      <label for="sfp_style_image">Style reference image (JPEG/PNG, max 10MB) *</label><br>
+      <input type="file" id="sfp_style_image" name="style_image" accept="image/jpeg,image/png,image/jpg" required><br><br>
+      
+      <label for="sfp_slides_count">Number of slides</label><br>
+      <input id="sfp_slides_count" type="number" name="slides_count" value="5" min="2" max="20" required><br><br>
+      
+      <label for="sfp_prompt_hint">Prompt hint (optional)</label><br>
+      <input id="sfp_prompt_hint" type="text" name="prompt_hint" placeholder="e.g. dark futuristic atmosphere"><br><br>
+      
+      <label for="sfp_style_strength">Style strength</label><br>
+      <input id="sfp_style_strength" type="number" name="style_strength" value="0.6" step="0.05" min="0.0" max="1.0"><br><br>
+      
+      <label for="sfp_seed">Seed (optional)</label><br>
+      <input id="sfp_seed" type="number" name="seed" placeholder="Random if empty"><br><br>
+      
+      <label>
+        <input type="checkbox" name="with_text_overlay" checked>
+        Apply text overlay (render carousel with titles)
+      </label><br><br>
+      
+      <button type="submit" style="background:#2563eb; color:#fff; font-weight:bold; padding:10px 20px;">
+        Generate (Style-from-Photo)
+      </button>
+      
+      <div id="sfp_result" style="display:none; margin-top:20px;">
+        <div class="notice" id="sfp_status">Processing...</div>
+        <div id="sfp_preview"></div>
+        <a id="sfp_download" href="#" style="display:none; padding:8px 16px; background:#10b981; color:#fff; text-decoration:none; border-radius:4px;">
+          Download ZIP
+        </a>
+      </div>
+    </form>
+  </section>
+
+  <script>
+    document.getElementById('styleFromPhotoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const resultDiv = document.getElementById('sfp_result');
+      const statusDiv = document.getElementById('sfp_status');
+      const previewDiv = document.getElementById('sfp_preview');
+      const downloadLink = document.getElementById('sfp_download');
+      
+      resultDiv.style.display = 'block';
+      statusDiv.textContent = 'Uploading and starting job...';
+      
+      try {
+        // Upload style image first
+        const styleFile = document.getElementById('sfp_style_image').files[0];
+        if (!styleFile) {
+          alert('Please select a style reference image');
+          return;
+        }
+        
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', styleFile);
+        
+        const uploadResponse = await fetch('/api/carousel/upload-style-image', {
+          method: 'POST',
+          body: uploadFormData
+        });
+        
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          statusDiv.textContent = 'Error: ' + error.detail;
+          return;
+        }
+        
+        const uploadResult = await uploadResponse.json();
+        
+        // Generate texts
+        const idea = document.getElementById('sfp_idea').value;
+        const slidesCount = document.getElementById('sfp_slides_count').value;
+        
+        const textsResponse = await fetch('/api/carousel/generate-texts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idea, slides_count: parseInt(slidesCount) })
+        });
+        
+        if (!textsResponse.ok) {
+          const error = await textsResponse.json();
+          statusDiv.textContent = 'Error generating texts: ' + error.detail;
+          return;
+        }
+        
+        const textsResult = await textsResponse.json();
+        
+        // Build JSON request for generation
+        const generatePayload = {
+          mode: 'style_from_photo',
+          style_image_path: uploadResult.path,
+          slides_count: parseInt(slidesCount),
+          style_strength: parseFloat(document.getElementById('sfp_style_strength').value || 0.6),
+          prompt_hint: document.getElementById('sfp_prompt_hint').value || null,
+          seed: document.getElementById('sfp_seed').value ? parseInt(document.getElementById('sfp_seed').value) : null,
+          with_text_overlay: document.querySelector('input[name="with_text_overlay"]').checked,
+          text_content: textsResult.text_content,
+          count: 1
+        };
+        
+        // Start generation
+        const generateResponse = await fetch('/api/carousel/generate?mode=style_from_photo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(generatePayload)
+        });
+        
+        if (!generateResponse.ok) {
+          const error = await generateResponse.json();
+          statusDiv.textContent = 'Error: ' + error.detail;
+          return;
+        }
+        
+        const generateResult = await generateResponse.json();
+        const jobId = generateResult.id;
+        
+        statusDiv.textContent = `Job started with ID: ${jobId}. Polling status...`;
+        
+        // Poll job status
+        const pollInterval = setInterval(async () => {
+          const statusResponse = await fetch(`/api/carousel/generations/${jobId}`);
+          if (!statusResponse.ok) {
+            clearInterval(pollInterval);
+            statusDiv.textContent = 'Error polling status';
+            return;
+          }
+          
+          const jobStatus = await statusResponse.json();
+          
+          if (jobStatus.status === 'completed') {
+            clearInterval(pollInterval);
+            statusDiv.textContent = 'Generation completed!';
+            statusDiv.style.background = '#e8f5e9';
+            
+            // Show preview
+            if (jobStatus.output_files && jobStatus.output_files.length > 0) {
+              previewDiv.innerHTML = '<h4>Preview</h4>';
+              jobStatus.output_files.forEach((file, idx) => {
+                const img = document.createElement('img');
+                img.src = '/' + file;
+                img.width = 200;
+                img.style.marginRight = '8px';
+                img.style.borderRadius = '6px';
+                previewDiv.appendChild(img);
+              });
+            }
+            
+            // Show download button
+            downloadLink.href = `/api/carousel/jobs/${jobId}/zip`;
+            downloadLink.style.display = 'inline-block';
+          } else if (jobStatus.status === 'failed') {
+            clearInterval(pollInterval);
+            statusDiv.textContent = 'Generation failed: ' + (jobStatus.error_message || 'Unknown error');
+            statusDiv.style.background = '#fee';
+          } else if (jobStatus.status === 'processing') {
+            statusDiv.textContent = `Processing... (${jobStatus.status})`;
+          }
+        }, 2000);
+        
+      } catch (error) {
+        statusDiv.textContent = 'Error: ' + error.message;
+      }
+    });
+  </script>
+
+  <section class="templates">
+    <h4>Saved templates</h4>
+    {% if stored_templates %}
+      {% for tpl in stored_templates %}
+        <div class="template-card">
+          <div class="template-header">
+            <span>{{ tpl.name }}</span>
+            <span>{{ tpl.created_at }}</span>
+          </div>
+          <div>Slides: {{ tpl.slides_count }} - Watermark: {{ tpl.username }}</div>
+          <div>Auto-generation: {% if tpl.auto_generate_daily %}enabled{% else %}disabled{% endif %}</div>
+          {% if tpl.last_generated_at %}
+            <div>Last batch: {{ tpl.last_generated_at }}</div>
+          {% endif %}
+          <div class="template-actions" style="margin-top:12px;">
+            <form action="/generate_from_template" method="post">
+              <input type="hidden" name="template_name" value="{{ tpl.name }}">
+              <input type="number" name="count" value="5" min="1" max="20" style="width:80px;">
+              <button type="submit">Generate batch</button>
+            </form>
+            <form action="/toggle_auto_template" method="post">
+              <input type="hidden" name="template_name" value="{{ tpl.name }}">
+              <input type="hidden" name="enable" value="{% if tpl.auto_generate_daily %}0{% else %}1{% endif %}">
+              <button type="submit">{% if tpl.auto_generate_daily %}Disable daily run{% else %}Enable daily run{% endif %}</button>
+            </form>
+            <a href="/carousel?template={{ tpl.name }}">Edit template</a>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No templates yet. Save one above to automate your carousel production.</p>
+    {% endif %}
+  </section>
+</body>
+</html>
+
+

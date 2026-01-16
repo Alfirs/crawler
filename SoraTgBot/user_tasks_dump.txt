@@ -1,0 +1,451 @@
+from __future__ import annotations
+
+import textwrap
+from pathlib import Path
+from typing import Iterable
+
+from aiogram import F, Router
+from aiogram.filters import Command, CommandObject
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import CallbackQuery, Message
+
+from bot.keyboards import (
+    confirm_start_task_keyboard,
+    main_menu_keyboard,
+)
+from core.dto import ProductDraft, ProductFormData, TaskSummary
+from core.models import GenerationStatus, TaskStatus
+from services.session_storage import UserSessionStorage
+from services.task_manager import TaskManager
+from services.pipeline_worker import PipelineWorker
+
+router = Router(name=__name__)
+
+UPLOADS_ROOT = Path("storage") / "uploads"
+
+_task_manager: TaskManager | None = None
+_pipeline_worker: PipelineWorker | None = None
+_session_storage: UserSessionStorage | None = None
+
+TASK_STATUS_TEXT = {
+    TaskStatus.PENDING: "? ???????",
+    TaskStatus.PROCESSING: "? ??????",
+    TaskStatus.COMPLETED: "??????",
+    TaskStatus.FAILED: "?????? ? ????????",
+}
+
+
+
+
+
+
+
+
+SUBTASK_STATUS_TEXT = {
+    GenerationStatus.PENDING: "? ???????",
+    GenerationStatus.SCRIPT_GENERATING: "??????",
+    GenerationStatus.VIDEO_GENERATING: "?????",
+    GenerationStatus.DONE: "??????",
+    GenerationStatus.FAILED: "??????",
+}
+
+
+
+
+
+
+
+
+
+def setup_handlers(
+    task_manager: TaskManager,
+    session_storage: UserSessionStorage,
+    pipeline_worker: PipelineWorker | None,
+) -> None:
+    global _task_manager, _pipeline_worker, _session_storage
+    _task_manager = task_manager
+    _pipeline_worker = pipeline_worker
+    _session_storage = session_storage
+
+
+def _require_task_manager() -> TaskManager:
+    if _task_manager is None:
+        raise RuntimeError("TaskManager is not configured")
+    return _task_manager
+
+
+def _session() -> UserSessionStorage:
+    if _session_storage is None:
+        raise RuntimeError("Session storage is not configured")
+    return _session_storage
+
+
+class ProductForm(StatesGroup):
+    waiting_for_photo = State()
+    waiting_for_description = State()
+
+
+class BatchConfig(StatesGroup):
+    waiting_for_generation_count = State()
+    waiting_for_ideas = State()
+
+
+class TaskCreation(StatesGroup):
+    waiting_for_confirmation = State()
+
+
+def _format_ideas(ideas: Iterable[str]) -> str:
+    cleaned = [idea.strip() for idea in ideas if idea.strip()]
+    return ", ".join(cleaned) if cleaned else "—"
+
+
+def _format_draft(draft: ProductDraft, index: int) -> str:
+    return textwrap.dedent(
+        f"""
+        {index}. {draft.description or "Без описания"}
+           Файл: {draft.image_path.name if draft.image_path else "—"}
+        """
+    ).strip()
+
+
+async def _build_tasks_text(user_id: int, limit: int = 10) -> str:
+    task_manager = _require_task_manager()
+    summaries = await task_manager.list_tasks_for_user(user_id, limit)
+    if not summaries:
+        return "У вас пока нет задач. Добавьте товары и идеи, затем запустите первую задачу."
+
+    lines = ["Ваши последние задачи:"]
+    for summary in summaries:
+        lines.append(_format_task_summary(summary))
+    lines.append("")
+    lines.append("Подробнее: /task <task_id>")
+    return "\n".join(lines)
+
+
+def _format_task_summary(summary: TaskSummary) -> str:
+    status_text = TASK_STATUS_TEXT.get(summary.status, summary.status.value)
+    total = summary.total or 0
+    done = summary.done or 0
+    failed = summary.failed or 0
+    return f"{summary.id}: {status_text}, готово {done}/{total}, ошибок {failed}"
+
+
+def _format_subtask_line(index: int, subtask) -> str:
+    status_text = SUBTASK_STATUS_TEXT.get(subtask.status, subtask.status.value)
+    product_name = subtask.product.title[:40]
+    idea_text = subtask.idea.text[:40]
+    return f"{index}. {product_name} × «{idea_text}» — {status_text}"
+
+
+@router.message(Command("tasks"))
+async def handle_list_tasks(message: Message) -> None:
+    text = await _build_tasks_text(message.from_user.id)
+    await message.answer(text, reply_markup=main_menu_keyboard())
+
+
+@router.callback_query(F.data == "list_tasks")
+async def handle_list_tasks_callback(callback_query: CallbackQuery) -> None:
+    await callback_query.answer()
+    text = await _build_tasks_text(callback_query.from_user.id)
+    if callback_query.message:
+        await callback_query.message.answer(text, reply_markup=main_menu_keyboard())
+
+
+@router.message(Command("task"))
+async def handle_task_detail(message: Message, command: CommandObject) -> None:
+    task_id = (command.args or "").strip()
+    if not task_id:
+        await message.answer("Укажите ID задачи: /task <task_id>")
+        return
+
+    task_manager = _require_task_manager()
+    task = await task_manager.load_task(task_id)
+    if task is None or task.owner_user_id != message.from_user.id:
+        await message.answer("Задача с таким ID не найдена.")
+        return
+
+    progress = await task_manager.get_task_progress(task.id)
+    total = progress["total"]
+    done = progress["done"]
+    failed = progress["failed"]
+    pending = total - done - failed
+
+    subtask_lines = [
+        _format_subtask_line(index, subtask)
+        for index, subtask in enumerate(task.subtasks[:5], start=1)
+    ]
+    if len(task.subtasks) > 5:
+        subtask_lines.append(f"… и ещё {len(task.subtasks) - 5} комбинаций.")
+
+    status_text = TASK_STATUS_TEXT.get(task.status, task.status.value)
+    lines = [
+        f"Задача {task.id}",
+        f"Статус: {status_text}",
+        f"Прогресс: готово {done}/{total}, ошибок {failed}, в очереди {pending}",
+        "",
+    ]
+    if subtask_lines:
+        lines.append("Примеры сабтасков:")
+        lines.extend(subtask_lines)
+        lines.append("")
+    lines.append("Для списка задач используйте /tasks.")
+    await message.answer("\n".join(lines), reply_markup=main_menu_keyboard())
+
+
+@router.callback_query(F.data == "add_product")
+async def handle_add_product(callback_query: CallbackQuery, state: FSMContext) -> None:
+    """Start product creation flow."""
+    await callback_query.answer()
+    user_id = callback_query.from_user.id
+    _session().start_form(user_id)
+    await state.set_state(ProductForm.waiting_for_photo)
+    if callback_query.message:
+        await callback_query.message.answer(
+            "Отправь фото товара (можно одно). Файл будет сохранён и добавлен в карточку.",
+            reply_markup=main_menu_keyboard(),
+        )
+
+
+@router.message(ProductForm.waiting_for_photo, F.photo)
+async def handle_product_photo(message: Message, state: FSMContext) -> None:
+    """Save uploaded photo and ask for description."""
+    user_id = message.from_user.id
+    photo = message.photo[-1]
+    uploads_dir = UPLOADS_ROOT / str(user_id)
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    file_path = uploads_dir / f"{photo.file_unique_id}.jpg"
+    await message.bot.download(photo, destination=file_path)
+    _session().update_current_form(
+        user_id,
+        image_path=file_path,
+        image_file_id=photo.file_id,
+    )
+    await state.set_state(ProductForm.waiting_for_description)
+    await message.answer("Фото сохранено. Введи краткое описание товара (название/ключевые характеристики).")
+
+
+@router.message(ProductForm.waiting_for_photo)
+async def handle_missing_photo(message: Message) -> None:
+    await message.answer("Пожалуйста, отправь фотографию товара, чтобы продолжить.")
+
+
+@router.callback_query(F.data == "edit_description")
+async def prompt_description(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    user_id = callback_query.from_user.id
+    if _session().get_current_form(user_id) is None:
+        await callback_query.message.answer("Сначала нажми «Добавить товар» и отправь фото.")
+        return
+    await state.set_state(ProductForm.waiting_for_description)
+    await callback_query.message.answer("Введи новое описание товара.")
+
+
+@router.message(ProductForm.waiting_for_description, F.text)
+async def handle_description(message: Message, state: FSMContext) -> None:
+    user_id = message.from_user.id
+    _session().update_current_form(user_id, description=message.text.strip())
+    try:
+        draft = await _session().complete_form(user_id)
+    except ValueError as exc:
+        await message.answer(str(exc))
+        return
+    await state.clear()
+    await message.answer(
+        "Товар сохранён! Чтобы добавить ещё, снова нажми «Добавить товар».",
+        reply_markup=main_menu_keyboard(),
+    )
+    summary = await _format_draft_summary(user_id, draft)
+    await message.answer(summary)
+
+
+@router.message(ProductForm.waiting_for_description)
+async def handle_missing_description(message: Message) -> None:
+    await message.answer("Опиши товар текстом, чтобы продолжить.")
+
+
+@router.callback_query(F.data == "set_generation_count")
+async def prompt_generation_count(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    await state.set_state(BatchConfig.waiting_for_generation_count)
+    await callback_query.message.answer("Введи общее количество видео на каждую идею (1–10).")
+
+
+@router.message(BatchConfig.waiting_for_generation_count, F.text)
+async def handle_generation_count(message: Message, state: FSMContext) -> None:
+    user_id = message.from_user.id
+    try:
+        count = int(message.text.strip())
+    except ValueError:
+        await message.answer("Нужно число от 1 до 10.")
+        return
+    if not 1 <= count <= 10:
+        await message.answer("Нужно число от 1 до 10.")
+        return
+    await _session().set_generation_count(user_id, count)
+    await state.clear()
+    await message.answer(f"Количество генераций установлено: {count}.")
+
+
+@router.callback_query(F.data == "add_ideas")
+async def prompt_ideas(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    await state.set_state(BatchConfig.waiting_for_ideas)
+    await callback_query.message.answer(
+        "Отправь идеи для сценариев. Можно строками (каждая идея с новой строки) "
+        "или списком через запятую."
+    )
+
+
+@router.message(BatchConfig.waiting_for_ideas, F.text)
+async def handle_global_ideas(message: Message, state: FSMContext) -> None:
+    user_id = message.from_user.id
+    raw = message.text.replace("\r", "\n")
+    pieces = [part.strip() for part in raw.replace(",", "\n").split("\n") if part.strip()]
+    if not pieces:
+        await message.answer("Не нашёл идей в сообщении — попробуй ещё раз.")
+        return
+    await _session().set_ideas(user_id, pieces)
+    await state.clear()
+    await message.answer(f"Добавлено идей: {len(pieces)}.")
+
+
+@router.message(Command("my_products"))
+async def handle_my_products(message: Message) -> None:
+    user_id = message.from_user.id
+    drafts = await _session().get_drafts(user_id)
+    if not drafts:
+        await message.answer("У тебя пока нет сохранённых товаров. Нажми «Добавить товар», чтобы начать.")
+        return
+    config = await _session().get_config(user_id)
+    text = "\n\n".join(_format_draft(draft, index + 1) for index, draft in enumerate(drafts))
+    await message.answer(
+        textwrap.dedent(
+            f"""
+            Сохранённые товары:
+
+            {text}
+
+            ⚙️ Параметры задачи:
+            • Генераций на идею: {config.generation_count}
+            • Идей: {len(config.ideas) or 1}
+            """
+        ).strip()
+    )
+
+
+async def _format_draft_summary(user_id: int, draft: ProductDraft) -> str:
+    drafts = await _session().get_drafts(user_id)
+    return textwrap.dedent(
+        f"""
+        ❇️ Карточка #{len(drafts)}:
+        • Описание: {draft.description}
+        • Фото: {draft.image_path.name if draft.image_path else "—"}
+        """
+    ).strip()
+
+
+@router.callback_query(F.data == "start_task")
+async def handle_start_task(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    user_id = callback_query.from_user.id
+    if _session().get_current_form(user_id):
+        await callback_query.message.answer(
+            "Сначала заверши текущую карточку товара (заполни описание/идеи), затем запускай задачу."
+        )
+        return
+
+    drafts = await _session().get_drafts(user_id)
+    if not drafts:
+        await callback_query.message.answer("Список товаров пуст. Нажми «Добавить товар», чтобы создать карточку.")
+        return
+
+    config = await _session().get_config(user_id)
+    summary_text, totals = _build_task_summary(drafts, config)
+    idea_preview = _format_idea_preview(config.ideas)
+    await state.set_state(TaskCreation.waiting_for_confirmation)
+    await callback_query.message.answer(
+        "Готово к запуску:\n"
+        f"• Товаров: {totals['products']}\n"
+        f"• Подзадач (товар × идея): {totals['subtasks']}\n"
+        f"• Суммарных генераций: {totals['generations']}\n\n"
+        f"Идеи ({len(config.ideas) or 1}): {idea_preview}\n\n"
+        f"{summary_text}\n\n"
+        "Запустить задачу?",
+        reply_markup=confirm_start_task_keyboard(),
+    )
+
+
+@router.callback_query(TaskCreation.waiting_for_confirmation, F.data == "cancel_start_task")
+async def handle_cancel_start_task(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer("Запуск отменён")
+    await state.clear()
+
+
+@router.callback_query(TaskCreation.waiting_for_confirmation, F.data == "confirm_start_task")
+async def handle_confirm_start_task(callback_query: CallbackQuery, state: FSMContext) -> None:
+    await callback_query.answer()
+    user_id = callback_query.from_user.id
+    drafts = await _session().consume_drafts(user_id)
+    config = await _session().get_config(user_id)
+    if not drafts:
+        await callback_query.message.answer("Карточки товаров не найдены — возможно, их уже запустили.")
+        await state.clear()
+        return
+
+    task_manager = _require_task_manager()
+    task = await task_manager.create_task_from_drafts(
+        drafts,
+        ideas=config.ideas,
+        generation_count=config.generation_count,
+        owner_user_id=user_id,
+    )
+    await state.clear()
+
+    if _pipeline_worker:
+        await _pipeline_worker.enqueue(task.id)
+        status_text = "Задача создана и отправлена в очередь на генерацию."
+    else:
+        status_text = (
+            "Задача создана. Запусти обработчик вручную или используй /check_sora "
+            "после выполнения тестовой команды."
+        )
+
+    await callback_query.message.answer(
+        f"{status_text}\nID задачи: {task.id}\nПодзадач: {len(task.subtasks)}",
+        reply_markup=main_menu_keyboard(),
+    )
+
+
+def _build_task_summary(drafts: list[ProductDraft], config) -> tuple[str, dict[str, int]]:
+    lines: list[str] = []
+    idea_list = config.ideas or ["Общий сценарий"]
+    subtasks = len(drafts) * len(idea_list)
+    generations = subtasks * config.generation_count
+    for index, draft in enumerate(drafts, start=1):
+        lines.append(
+            textwrap.dedent(
+                f"""
+                {index}. {draft.description or "Без описания"}
+                   Фото: {draft.image_path.name if draft.image_path else "—"}
+                """
+            ).strip()
+        )
+
+    summary = "\n\n".join(lines)
+    totals = {
+        "products": len(drafts),
+        "subtasks": subtasks,
+        "generations": generations,
+    }
+    return summary, totals
+
+
+def _format_idea_preview(ideas: list[str]) -> str:
+    values = [idea.strip() for idea in ideas or [] if idea.strip()]
+    if not values:
+        return "Общий сценарий"
+    preview = ", ".join(values[:5])
+    if len(values) > 5:
+        preview += f" … +{len(values) - 5}"
+    return preview

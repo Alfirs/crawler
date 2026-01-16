@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Carousel Generator</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 Instagram Carousel Generator</h1>
+            <p class="subtitle">Создавайте профессиональные карусели для Instagram с помощью ИИ</p>
+            <nav style="margin-top: 20px;">
+                <a href="/analyze" style="color: white; text-decoration: underline; font-size: 0.95rem;">
+                    🖼️ Анализ изображений и генерация промптов
+                </a>
+            </nav>
+        </header>
+
+        <main>
+            <form method="post" action="/generate" enctype="multipart/form-data" class="generator-form">
+                <div class="form-section">
+                    <h2>📸 Основные параметры</h2>
+                    
+                    <div class="form-group">
+                        <label for="cover_image">Обложка (фото) *</label>
+                        <input type="file" id="cover_image" name="cover_image" required accept="image/*">
+                        <small>Загрузите изображение для первого слайда</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="title">Заголовок карусели *</label>
+                        <input type="text" id="title" name="title" required 
+                               placeholder="Например: Как не сжечь свой талант" maxlength="100">
+                        <small>Основная тема вашей карусели (до 100 символов)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="slides_count">Количество слайдов</label>
+                        <input type="number" id="slides_count" name="slides_count" 
+                               min="2" max="10" value="5" required>
+                        <small>От 2 до 10 слайдов (включая обложку)</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="bg_prompt">Комикс-фон (промт)</label>
+                        <input type="text" id="bg_prompt" name="bg_prompt" 
+                               placeholder="woman arguing, dramatic scene, interior, comic style">
+                        <small>Опишите сцену и стиль для фонов. Пример: "angry couple arguing, dramatic interior lighting, cinematic close-up, expressive faces, comic illustration, flat colors, no text, no captions, no watermark"</small>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <h2>💧 Водяной знак</h2>
+                    <p class="section-description">Выберите один из вариантов или оставьте пустым</p>
+                    
+                    <div class="form-group">
+                        <label for="watermark_text">Текстовый водяной знак</label>
+                        <input type="text" id="watermark_text" name="watermark_text" 
+                               placeholder="@username или ваш текст" maxlength="50">
+                        <small>Простой текст в правом нижнем углу</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="watermark_png">PNG водяной знак</label>
+                        <input type="file" id="watermark_png" name="watermark_png" accept="image/png">
+                        <small>PNG файл с прозрачностью (приоритет над текстом)</small>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="generate-btn">
+                        ✨ Сгенерировать карусель
+                    </button>
+                </div>
+            </form>
+
+            <div class="info-section">
+                <h2>ℹ️ Как это работает</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <h3>1. Загрузите обложку</h3>
+                        <p>Ваше изображение станет фоном первого слайда с заголовком</p>
+                    </div>
+                    <div class="info-item">
+                        <h3>2. Укажите тему</h3>
+                        <p>ИИ создаст план карусели с интересными тезисами</p>
+                    </div>
+                    <div class="info-item">
+                        <h3>3. Получите результат</h3>
+                        <p>ZIP-архив с готовыми PNG слайдами для публикации</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features-section">
+                <h2>🚀 Возможности</h2>
+                <ul class="features-list">
+                    <li>✅ Автоматическая генерация текста с помощью ИИ</li>
+                    <li>✅ Уникальные изображения для каждого слайда</li>
+                    <li>✅ Красивая типографика с шрифтом Inter</li>
+                    <li>✅ Водяные знаки (текст или PNG)</li>
+                    <li>✅ Готовый формат 1024×1024 для Instagram</li>
+                    <li>✅ Экономичное использование NeuroAPI</li>
+                </ul>
+            </div>
+        </main>
+
+        <footer>
+            <p>💡 <strong>Совет:</strong> Используйте яркие, контрастные изображения для обложки. 
+               ИИ автоматически создаст стильные фоны для остальных слайдов.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Простая валидация формы
+        document.querySelector('.generator-form').addEventListener('submit', function(e) {
+            const submitBtn = document.querySelector('.generate-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Генерируем карусель...';
+            
+            // Показываем предупреждение о времени ожидания
+            setTimeout(() => {
+                if (submitBtn.disabled) {
+                    const warning = document.createElement('p');
+                    warning.className = 'loading-warning';
+                    warning.textContent = '⚠️ Генерация может занять 30-60 секунд. Пожалуйста, подождите...';
+                    submitBtn.parentNode.appendChild(warning);
+                }
+            }, 5000);
+        });
+
+        // Превью изображения обложки
+        document.getElementById('cover_image').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    let preview = document.querySelector('.image-preview');
+                    if (!preview) {
+                        preview = document.createElement('div');
+                        preview.className = 'image-preview';
+                        e.target.parentNode.appendChild(preview);
+                    }
+                    preview.innerHTML = `<img src="${e.target.result}" alt="Preview" style="max-width: 200px; max-height: 200px; border-radius: 8px; margin-top: 10px;">`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    </script>
+</body>
+</html>
+

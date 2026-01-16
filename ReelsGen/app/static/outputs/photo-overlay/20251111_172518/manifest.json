@@ -1,0 +1,28 @@
+{
+  "mode": [
+    "cover",
+    "content",
+    "content"
+  ],
+  "templates": [
+    "user_photo",
+    "green_plain",
+    "green_pattern"
+  ],
+  "size": "1080x1350",
+  "slides_total": 3,
+  "files": [
+    {
+      "index": 1,
+      "file": "slide_1.png"
+    },
+    {
+      "index": 2,
+      "file": "slide_2.png"
+    },
+    {
+      "index": 3,
+      "file": "slide_3.png"
+    }
+  ]
+}

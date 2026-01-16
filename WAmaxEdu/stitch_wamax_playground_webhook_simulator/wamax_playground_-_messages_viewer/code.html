@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WAmax Playground - Messages Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#21ba54",
+                        "primary-dark": "#1a9443",
+                        "background-light": "#f7f7f7",
+                        "background-dark": "#1a1a1a",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#262626",
+                        "accent-purple": "#9e77ed",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"],
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px"},
+                    boxShadow: {
+                        "card": "0px 4px 12px rgba(0, 0, 0, 0.05)",
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for JSON viewer */
+        .json-viewer::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .json-viewer::-webkit-scrollbar-track {
+            background: #2d2d2d;
+            border-radius: 4px;
+        }
+        .json-viewer::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 4px;
+        }
+        .json-viewer::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-[#121713] dark:text-white transition-colors duration-200">
+<div class="flex h-screen w-full overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-[280px] hidden md:flex flex-col bg-surface-light dark:bg-surface-dark border-r border-[#e5e7eb] dark:border-[#404040] h-full transition-colors duration-200 shrink-0 z-20">
+<div class="flex flex-col h-full p-4 justify-between">
+<div class="flex flex-col gap-6">
+<!-- Brand -->
+<div class="flex items-center gap-3 px-2 py-1">
+<div class="bg-gradient-to-tr from-primary to-green-300 aspect-square rounded-lg size-10 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-[24px]">api</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-base font-bold leading-none dark:text-white">WAmax</h1>
+<p class="text-primary text-xs font-semibold uppercase tracking-wider mt-1">Playground</p>
+</div>
+</div>
+<!-- Navigation -->
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#658670] group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">dashboard</span>
+<span class="text-[#658670] font-medium text-sm group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 dark:bg-primary/20 transition-colors" href="#">
+<span class="material-symbols-outlined text-primary" data-weight="fill">chat_bubble</span>
+<span class="text-primary font-bold text-sm">Messages Viewer</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#658670] group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">send</span>
+<span class="text-[#658670] font-medium text-sm group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">Send Message</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#658670] group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">hub</span>
+<span class="text-[#658670] font-medium text-sm group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">Webhooks</span>
+</a>
+</nav>
+</div>
+<!-- Footer Links -->
+<div class="flex flex-col gap-1 pt-4 border-t border-[#e5e7eb] dark:border-[#404040]">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#658670] group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">description</span>
+<span class="text-[#658670] font-medium text-sm group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">Documentation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333] transition-colors group" href="#">
+<span class="material-symbols-outlined text-[#658670] group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">monitoring</span>
+<span class="text-[#658670] font-medium text-sm group-hover:text-[#121713] dark:text-gray-400 dark:group-hover:text-white transition-colors">System Health</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col h-full overflow-hidden relative">
+<!-- Header -->
+<header class="h-16 border-b border-[#e5e7eb] dark:border-[#404040] bg-surface-light dark:bg-surface-dark flex items-center justify-between px-6 shrink-0 z-10">
+<!-- Breadcrumbs -->
+<div class="flex items-center gap-2 text-sm">
+<a class="text-[#658670] hover:text-primary dark:text-gray-400 dark:hover:text-white transition-colors" href="#">Home</a>
+<span class="text-[#658670] dark:text-gray-600">/</span>
+<span class="text-[#121713] font-medium dark:text-white">Messages Viewer</span>
+</div>
+<!-- Profile/Settings -->
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#658670] hover:bg-gray-100 rounded-full dark:text-gray-400 dark:hover:bg-[#333] transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-8 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white text-xs font-bold ring-2 ring-white dark:ring-[#333]">
+                        JD
+                    </div>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto p-6 md:p-8 scroll-smooth">
+<div class="max-w-[1200px] mx-auto flex flex-col gap-6 pb-12">
+<!-- Page Title -->
+<div class="flex flex-col gap-1">
+<h2 class="text-3xl font-extrabold text-[#1a1a1a] dark:text-white tracking-tight">Messages Viewer</h2>
+<p class="text-[#658670] dark:text-gray-400">Inspect real-time messaging data, troubleshoot flows, and view raw API responses.</p>
+</div>
+<!-- Filter Section Card -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-card border border-[#e5e7eb] dark:border-[#404040] p-6 transition-all">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary">filter_list</span>
+<h3 class="text-base font-bold text-[#1a1a1a] dark:text-white">Conversation Filters</h3>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+<div class="md:col-span-4 flex flex-col gap-2">
+<label class="text-xs font-semibold text-[#658670] dark:text-gray-400 uppercase tracking-wide">Account ID</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 material-symbols-outlined text-[20px]">tag</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-[#333] border border-gray-200 dark:border-[#555] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm dark:text-white placeholder:text-gray-400 transition-all" placeholder="e.g. 84920" type="text"/>
+</div>
+</div>
+<div class="md:col-span-4 flex flex-col gap-2">
+<label class="text-xs font-semibold text-[#658670] dark:text-gray-400 uppercase tracking-wide">Channel</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 material-symbols-outlined text-[20px]">forum</span>
+<select class="w-full pl-10 pr-8 py-2.5 bg-gray-50 dark:bg-[#333] border border-gray-200 dark:border-[#555] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm text-[#1a1a1a] dark:text-white appearance-none cursor-pointer transition-all">
+<option value="">All Channels</option>
+<option value="whatsapp">WhatsApp Business</option>
+<option value="telegram">Telegram</option>
+<option value="instagram">Instagram</option>
+</select>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none material-symbols-outlined text-[20px]">expand_more</span>
+</div>
+</div>
+<div class="md:col-span-2 flex flex-col gap-2">
+<label class="text-xs font-semibold text-[#658670] dark:text-gray-400 uppercase tracking-wide">Limit</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#333] border border-gray-200 dark:border-[#555] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm dark:text-white transition-all" type="number" value="50"/>
+</div>
+<div class="md:col-span-2">
+<button class="w-full py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg shadow-lg shadow-primary/30 transition-all flex items-center justify-center gap-2 active:scale-95">
+<span class="material-symbols-outlined text-[20px]">refresh</span>
+                                        Load
+                                    </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Results Table Card -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-card border border-[#e5e7eb] dark:border-[#404040] overflow-hidden transition-all flex flex-col">
+<div class="p-4 border-b border-[#e5e7eb] dark:border-[#404040] flex justify-between items-center bg-gray-50/50 dark:bg-[#333]/30">
+<h3 class="text-sm font-bold text-[#1a1a1a] dark:text-white uppercase tracking-wider">Active Conversations</h3>
+<div class="flex items-center gap-2">
+<span class="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs px-2 py-1 rounded-full font-bold">5 Active</span>
+<button class="p-1 hover:bg-gray-200 dark:hover:bg-[#444] rounded text-gray-500">
+<span class="material-symbols-outlined text-[18px]">more_horiz</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-gray-50 dark:bg-[#333]/50 text-[#658670] dark:text-gray-400 text-xs uppercase font-semibold">
+<tr>
+<th class="px-6 py-4">ID</th>
+<th class="px-6 py-4">Contact</th>
+<th class="px-6 py-4">Channel</th>
+<th class="px-6 py-4">Last Message</th>
+<th class="px-6 py-4">Status</th>
+<th class="px-6 py-4 text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[#e5e7eb] dark:divide-[#404040] text-sm text-[#1a1a1a] dark:text-gray-200">
+<tr class="group hover:bg-gray-50 dark:hover:bg-[#333]/30 transition-colors cursor-pointer">
+<td class="px-6 py-4 font-mono text-xs text-blue-600 dark:text-blue-400">conv_9281_x</td>
+<td class="px-6 py-4 font-medium flex items-center gap-3">
+<div class="size-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">JD</div>
+                                            Jane Doe
+                                        </td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<img alt="WhatsApp" class="size-4" data-alt="Small WhatsApp logo icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQlYwfmczxHuyVB-mLQjZuzHC9AF1dXSuRm4dxlNUQ7xHf5a2q-lzinzteG4jmiK_YDknoXjletqEAHQykfTPzEg9DaCuNN3rZvlh8D-L5YFqK9FpShc0NtY_l8NHnkSGgTtJj0bL4WVE3SmCPupqjIxQ5nsrxR-iWr1KeOdBNosFmgRDIemf3tWheiERMHYk44vWy7mg9ghIEbSikqd6gvGW40CAFHbYWNLkUb8zCbngURoWpzrE3RsdEMuFrbg74isF5ai2yUbYk"/>
+                                                WhatsApp
+                                            </div>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400 truncate max-w-[150px]">Can you update the...</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                                Active
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-xs hover:underline">Inspect</button>
+</td>
+</tr>
+<tr class="group hover:bg-gray-50 dark:hover:bg-[#333]/30 transition-colors cursor-pointer">
+<td class="px-6 py-4 font-mono text-xs text-blue-600 dark:text-blue-400">conv_3312_a</td>
+<td class="px-6 py-4 font-medium flex items-center gap-3">
+<div class="size-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-xs">AC</div>
+                                            Acme Corp
+                                        </td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<img alt="Telegram" class="size-4" data-alt="Small Telegram logo icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4iZOTegBPncJ2IPLTbQr45hu8h7vod55TlMOZXGK4RoEACBjoXXaALhFDhWMXl-YRbMhUHOKi7TIn371JvjApTquwyX_V681kmDS2GLnU_CAFOcuxKx6GCxb1UULwWzLp2C-jiJ-YPGakhuzSK7oTEhoJEYWXZJODNEcNxfcG2tsOzKlwtIjgdVegowsvb3Wutqj0aYKp0z4j_7_TbvjZlkLCPHQFfiqSniY40dYbxlv0gv3_BnCHYugKNKgDvmUKztumjPu42oNE"/>
+                                                Telegram
+                                            </div>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400 truncate max-w-[150px]">Payment received.</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                                                Closed
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-xs hover:underline">Inspect</button>
+</td>
+</tr>
+<tr class="group hover:bg-gray-50 dark:hover:bg-[#333]/30 transition-colors cursor-pointer">
+<td class="px-6 py-4 font-mono text-xs text-blue-600 dark:text-blue-400">conv_8819_z</td>
+<td class="px-6 py-4 font-medium flex items-center gap-3">
+<div class="size-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xs">BR</div>
+                                            Bob Ross
+                                        </td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<img alt="Instagram" class="size-4" data-alt="Small Instagram logo icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBk94N8frdiIS8vn4utO85AJULrm7u4jdtm3DdngkwSsjz6y0agyrZsOD1eegVpz_bT7CsubO-vXdKC7aDCH1TdcVM6qNKnfAzCzl3GN5oc-JdJCA61ltdXfYT5kWsISG6Wjrw8tBOYT75XGZ9h36bMdv9xV1A11So0IB7Z98mIIqHKCtsgnA4q9CBcH0ZWzueXxSN3B9-K3DPpC22TO6MgXdlV1ItlCB9J34oB1-ryZDW0yCXN_-ppo0QyC50eNxCwHexlaPbL5eNe"/>
+                                                Instagram
+                                            </div>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400 truncate max-w-[150px]">Happy little trees 🌲</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                                Active
+                                            </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium text-xs hover:underline">Inspect</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-3 border-t border-[#e5e7eb] dark:border-[#404040] bg-gray-50 dark:bg-[#333]/30 text-center">
+<button class="text-xs text-[#658670] hover:text-primary dark:text-gray-400 font-medium transition-colors">Load more conversations</button>
+</div>
+</section>
+<!-- Message Inspector & JSON Viewer Split -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- Inspector Controls -->
+<div class="lg:col-span-1 flex flex-col gap-6">
+<!-- Specific Message Lookup -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-card border border-[#e5e7eb] dark:border-[#404040] p-5">
+<h3 class="text-sm font-bold text-[#1a1a1a] dark:text-white mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-accent-purple text-[20px]">search</span>
+                                    Single Message Lookup
+                                </h3>
+<div class="flex flex-col gap-3">
+<label class="text-xs font-semibold text-[#658670] dark:text-gray-400 uppercase tracking-wide">Message ID</label>
+<div class="flex gap-2">
+<input class="flex-1 w-full px-4 py-2 bg-gray-50 dark:bg-[#333] border border-gray-200 dark:border-[#555] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent-purple/50 focus:border-accent-purple text-sm dark:text-white font-mono" placeholder="msg_id_..." type="text"/>
+<button class="px-3 py-2 bg-accent-purple hover:bg-[#8a65d4] text-white rounded-lg transition-colors shadow-lg shadow-accent-purple/20">
+<span class="material-symbols-outlined text-[20px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Conversation Controls -->
+<section class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-card border border-[#e5e7eb] dark:border-[#404040] p-5 flex-1">
+<h3 class="text-sm font-bold text-[#1a1a1a] dark:text-white mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]">settings_input_component</span>
+                                    Parameters
+                                </h3>
+<div class="flex flex-col gap-4">
+<div class="flex flex-col gap-2">
+<label class="text-xs font-semibold text-[#658670] dark:text-gray-400 uppercase tracking-wide">Conversation ID</label>
+<input class="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#333] border border-gray-200 dark:border-[#555] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm font-mono text-blue-600 dark:text-blue-400 font-bold" type="text" value="conv_9281_x"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-xs font-semibold text-[#658670] dark:text-gray-400 uppercase tracking-wide">Direction</label>
+<select class="w-full px-4 py-2.5 bg-gray-50 dark:bg-[#333] border border-gray-200 dark:border-[#555] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-sm dark:text-white">
+<option value="both">Inbound &amp; Outbound</option>
+<option value="inbound">Inbound Only</option>
+<option value="outbound">Outbound Only</option>
+</select>
+</div>
+<button class="mt-2 w-full py-2.5 px-4 bg-white dark:bg-[#333] border-2 border-primary text-primary dark:text-primary hover:bg-primary hover:text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2">
+                                        Update View
+                                    </button>
+</div>
+</section>
+</div>
+<!-- JSON Viewer -->
+<div class="lg:col-span-2 flex flex-col h-full min-h-[400px]">
+<div class="bg-[#1e1e1e] rounded-t-xl p-3 flex justify-between items-center border-b border-[#333]">
+<div class="flex items-center gap-2 px-2">
+<div class="size-3 rounded-full bg-[#ff5f56]"></div>
+<div class="size-3 rounded-full bg-[#ffbd2e]"></div>
+<div class="size-3 rounded-full bg-[#27c93f]"></div>
+<span class="ml-2 text-xs font-mono text-gray-400">response.json</span>
+</div>
+<div class="flex gap-2">
+<button class="text-gray-400 hover:text-white p-1 rounded transition-colors" title="Copy">
+<span class="material-symbols-outlined text-[18px]">content_copy</span>
+</button>
+<button class="text-gray-400 hover:text-white p-1 rounded transition-colors" title="Expand">
+<span class="material-symbols-outlined text-[18px]">open_in_full</span>
+</button>
+</div>
+</div>
+<div class="bg-[#1e1e1e] flex-1 rounded-b-xl p-6 overflow-auto json-viewer border border-[#333] shadow-inner font-mono text-sm leading-relaxed">
+<pre class="text-[#abb2bf] m-0"><span class="text-[#c678dd]">{</span>
+  <span class="text-[#e06c75]" data-key="status">"status"</span>: <span class="text-[#98c379]" data-value="success">"success"</span>,
+  <span class="text-[#e06c75]" data-key="meta">"meta"</span>: <span class="text-[#c678dd]">{</span>
+    <span class="text-[#e06c75]">"count"</span>: <span class="text-[#d19a66]">1</span>,
+    <span class="text-[#e06c75]">"latency_ms"</span>: <span class="text-[#d19a66]">45</span>
+  <span class="text-[#c678dd]">}</span>,
+  <span class="text-[#e06c75]" data-key="data">"data"</span>: <span class="text-[#c678dd]">[</span>
+    <span class="text-[#c678dd]">{</span>
+      <span class="text-[#e06c75]">"id"</span>: <span class="text-[#98c379]">"msg_01HQ2X7"</span>,
+      <span class="text-[#e06c75]">"conversation_id"</span>: <span class="text-[#98c379]">"conv_9281_x"</span>,
+      <span class="text-[#e06c75]">"type"</span>: <span class="text-[#98c379]">"text"</span>,
+      <span class="text-[#e06c75]">"direction"</span>: <span class="text-[#98c379]">"inbound"</span>,
+      <span class="text-[#e06c75]">"content"</span>: <span class="text-[#c678dd]">{</span>
+        <span class="text-[#e06c75]">"body"</span>: <span class="text-[#98c379]">"Can you update the delivery address for order #4492?"</span>
+      <span class="text-[#c678dd]">}</span>,
+      <span class="text-[#e06c75]">"sender"</span>: <span class="text-[#c678dd]">{</span>
+        <span class="text-[#e06c75]">"phone"</span>: <span class="text-[#98c379]">"+15550192834"</span>,
+        <span class="text-[#e06c75]">"name"</span>: <span class="text-[#98c379]">"Jane Doe"</span>
+      <span class="text-[#c678dd]">}</span>,
+      <span class="text-[#e06c75]">"timestamp"</span>: <span class="text-[#98c379]">"2023-10-24T14:32:00Z"</span>,
+      <span class="text-[#e06c75]">"status"</span>: <span class="text-[#98c379]">"read"</span>
+    <span class="text-[#c678dd]">}</span>
+  <span class="text-[#c678dd]">]</span>
+<span class="text-[#c678dd]">}</span></pre>
+</div>
+<div class="mt-2 text-right">
+<span class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Generated in 45ms</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

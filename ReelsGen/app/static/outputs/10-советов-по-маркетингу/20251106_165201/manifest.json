@@ -1,0 +1,27 @@
+{
+  "title": "10 советов по маркетингу",
+  "template_id": "photo_overlay",
+  "slides_total": 3,
+  "files": [
+    {
+      "index": 1,
+      "file": "slide_01.png",
+      "path": "10-советов-по-маркетингу/20251106_165201/slide_01.png",
+      "url": "/outputs/10-советов-по-маркетингу/20251106_165201/slide_01.png"
+    },
+    {
+      "index": 2,
+      "file": "slide_02.png",
+      "path": "10-советов-по-маркетингу/20251106_165201/slide_02.png",
+      "url": "/outputs/10-советов-по-маркетингу/20251106_165201/slide_02.png"
+    },
+    {
+      "index": 3,
+      "file": "slide_03.png",
+      "path": "10-советов-по-маркетингу/20251106_165201/slide_03.png",
+      "url": "/outputs/10-советов-по-маркетингу/20251106_165201/slide_03.png"
+    }
+  ],
+  "generation_method": "template_system",
+  "run_dir": "10-советов-по-маркетингу/20251106_165201"
+}

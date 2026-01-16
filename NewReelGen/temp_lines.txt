@@ -1,0 +1,266 @@
+   1: from __future__ import annotations
+   2: 
+   3: import argparse
+   4: import base64
+   5: import concurrent.futures
+   6: import json
+   7: import os
+   8: import sys
+   9: import time
+  10: import traceback
+  11: from pathlib import Path
+  12: from typing import Callable, List, Optional
+  13: 
+  14: from dotenv import load_dotenv
+  15: from openai import APIError, InternalServerError, OpenAI, RateLimitError
+  16: 
+  17: 
+  18: def parse_args() -> argparse.Namespace:
+  19:     parser = argparse.ArgumentParser(
+  20:         description="Generate minimalist Instagram carousel slides via gpt-image-1."
+  21:     )
+  22:     parser.add_argument(
+  23:         "--topic",
+  24:         type=str,
+  25:         default="Идеи для карусели",
+  26:         help="Тема карусели (используется в подсказке).",
+  27:     )
+  28:     parser.add_argument(
+  29:         "--slides",
+  30:         type=int,
+  31:         default=3,
+  32:         help="Количество слайдов (1..20).",
+  33:     )
+  34:     parser.add_argument(
+  35:         "--username",
+  36:         type=str,
+  37:         default="@brand",
+  38:         help="Водяной знак (1..32 символа).",
+  39:     )
+  40:     parser.add_argument(
+  41:         "--style_seed",
+  42:         type=int,
+  43:         default=None,
+  44:         help="Необязательный seed для единообразного стиля.",
+  45:     )
+  46:     parser.add_argument(
+  47:         "--parallel",
+  48:         type=int,
+  49:         default=2,
+  50:         help="Количество одновременных запросов (1..5).",
+  51:     )
+  52:     return parser.parse_args()
+  53: 
+  54: 
+  55: def safe(value: Optional[str]) -> str:
+  56:     if value is None:
+  57:         return ""
+  58:     return value.replace('"', "'").strip()
+  59: 
+  60: 
+  61: def make_prompt(
+  62:     index: int,
+  63:     total: int,
+  64:     topic: str,
+  65:     username: str,
+  66:     style_seed: Optional[int] = None,
+  67: ) -> str:
+  68:     topic_clean = safe(topic)
+  69:     username_clean = safe(username)
+  70:     seed_clause = ""
+  71:     if style_seed is not None:
+  72:         seed_clause = (
+  73:             "CONSISTENCY:\n"
+  74:             f'- Keep overall style coherent across slides using this style seed hint: "{style_seed}"\n'
+  75:             "- Keep typography scale, margins, and color usage consistent across all slides.\n"
+  76:         )
+  77: 
+  78:     return (
+  79:         "You are a professional graphic designer.\n"
+  80:         "Create an Instagram slide (portrait 1080x1350) in clean minimalist style.\n\n"
+  81:         "TASK:\n"
+  82:         f"- Theme (in Russian): '{topic_clean}'\n"
+  83:         f"- Slide number: {index} of {total}\n"
+  84:         "- Generate short Russian text (max 3–4 lines) that fits this part of the theme.\n"
+  85:         "- Render that text directly inside the image with large, bold, highly legible sans-serif typography.\n"
+  86:         f"- Add a small watermark in the top-left corner: '{username_clean}' (opacity 70–80%, padding ~24px, color #707070).\n\n"
+  87:         "STYLE:\n"
+  88:         "- Very light background (white or light grey), soft subtle shadows.\n"
+  89:         "- One thin green accent line or geometric element (color #2f6f4a).\n"
+  90:         "- High-contrast text (dark grey or black).\n"
+  91:         "- Balanced composition, 10–12% margins, comfortable line spacing.\n"
+  92:         "- No heavy gradients (>5%). No icons, stickers, badges, emojis, or logos.\n"
+  93:         "- DO NOT place people, faces, or photos; only pure typography and minimalist shapes.\n"
+  94:         "- Text language inside the image: Russian.\n\n"
+  95:         "OUTPUT:\n"
+  96:         "- Final 1080x1350 portrait image.\n"
+  97:         "- All text must be integrated into the image (no external overlay).\n"
+  98:         f"{seed_clause}"
+  99:     ).strip()
+ 100: 
+ 101: 
+ 102: def save_image(b64_data: str, path: str) -> None:
+ 103:     Path(path).write_bytes(base64.b64decode(b64_data))
+ 104: 
+ 105: 
+ 106: def with_retry(
+ 107:     fn: Callable[[], any],
+ 108:     attempts: int = 3,
+ 109:     base: float = 1.6,
+ 110: ) -> any:
+ 111:     for attempt in range(1, attempts + 1):
+ 112:         try:
+ 113:             return fn()
+ 114:         except (RateLimitError, InternalServerError, APIError) as exc:
+ 115:             if attempt == attempts:
+ 116:                 raise
+ 117:             delay = base ** attempt
+ 118:             print(f"[retry] {exc.__class__.__name__}: {exc}. Retry in {delay:.1f}s.")
+ 119:             time.sleep(delay)
+ 120:         except Exception:
+ 121:             raise
+ 122:     raise RuntimeError("with_retry exhausted attempts without returning.")
+ 123: 
+ 124: 
+ 125: def generate_slide(
+ 126:     index: int,
+ 127:     total: int,
+ 128:     topic: str,
+ 129:     username: str,
+ 130:     style_seed: Optional[int],
+ 131:     client: OpenAI,
+ 132:     output_dir: Path,
+ 133: ) -> dict:
+ 134:     prompt = make_prompt(index, total, topic, username, style_seed)
+ 135:     print(f"[{index}/{total}] prompt -> gpt-image-1")
+ 136: 
+ 137:     def _call():
+ 138:         return client.images.generate(
+ 139:             model="gpt-image-1",
+ 140:             prompt=prompt,
+ 141:             size="1080x1350",
+ 142:             n=1,
+ 143:         )
+ 144: 
+ 145:     response = with_retry(_call)
+ 146:     b64_image = response.data[0].b64_json
+ 147:     output_path = output_dir / f"slide_{index}.jpg"
+ 148:     save_image(b64_image, str(output_path))
+ 149:     print(f"[{index}/{total}] saved: {output_path}")
+ 150:     return {
+ 151:         "index": index,
+ 152:         "path": str(output_path),
+ 153:         "topic": topic,
+ 154:         "username": username,
+ 155:         "size": "1080x1350",
+ 156:         "model": "gpt-image-1",
+ 157:     }
+ 158: 
+ 159: 
+ 160: def run_parallel(jobs: List[Callable[[], dict]], parallel: int) -> List[dict]:
+ 161:     results: List[Optional[dict]] = [None] * len(jobs)
+ 162:     effective_parallel = max(1, min(parallel, len(jobs)))
+ 163:     with concurrent.futures.ThreadPoolExecutor(max_workers=effective_parallel) as executor:
+ 164:         future_to_idx = {executor.submit(jobs[idx]): idx for idx in range(len(jobs))}
+ 165:         for future in concurrent.futures.as_completed(future_to_idx):
+ 166:             idx = future_to_idx[future]
+ 167:             try:
+ 168:                 results[idx] = future.result()
+ 169:             except Exception:
+ 170:                 executor.shutdown(cancel_futures=True)
+ 171:                 raise
+ 172:     return [item for item in results if item is not None]
+ 173: 
+ 174: 
+ 175: def _validate_inputs(slides: int, username: str, parallel: int) -> None:
+ 176:     if not (1 <= slides <= 20):
+ 177:         raise ValueError("--slides must be between 1 and 20.")
+ 178:     if not (1 <= len(username) <= 32):
+ 179:         raise ValueError("--username length must be between 1 and 32 characters.")
+ 180:     if not (1 <= parallel <= 5):
+ 181:         raise ValueError("--parallel must be between 1 and 5.")
+ 182: 
+ 183: 
+ 184: def validate_args(args: argparse.Namespace) -> None:
+ 185:     try:
+ 186:         _validate_inputs(args.slides, args.username, args.parallel)
+ 187:     except ValueError as exc:
+ 188:         sys.exit(f"❌ {exc}")
+ 189: 
+ 190: 
+ 191: def _prepare_client() -> OpenAI:
+ 192:     load_dotenv()
+ 193:     api_key = os.environ.get("OPENAI_API_KEY")
+ 194:     if not api_key:
+ 195:         raise RuntimeError("❌ No OPENAI_API_KEY found in .env")
+ 196:     return OpenAI().with_options(timeout=60)
+ 197: 
+ 198: 
+ 199: def generate_slides(
+ 200:     topic: str,
+ 201:     slides: int,
+ 202:     username: str,
+ 203:     style_seed: Optional[int] = None,
+ 204:     parallel: int = 2,
+ 205: ) -> List[dict]:
+ 206:     """
+ 207:     Генерирует слайды и возвращает список метаданных, как печатает main().
+ 208:     Использует только gpt-image-1 без каких-либо локальных наложений текста.
+ 209:     """
+ 210:     _validate_inputs(slides, username, parallel)
+ 211:     client = _prepare_client()
+ 212:     output_dir = Path("output")
+ 213:     output_dir.mkdir(parents=True, exist_ok=True)
+ 214: 
+ 215:     jobs: List[Callable[[], dict]] = []
+ 216:     for index in range(1, slides + 1):
+ 217:         jobs.append(
+ 218:             lambda idx=index: generate_slide(
+ 219:                 idx,
+ 220:                 slides,
+ 221:                 topic,
+ 222:                 username,
+ 223:                 style_seed,
+ 224:                 client,
+ 225:                 output_dir,
+ 226:             )
+ 227:         )
+ 228: 
+ 229:     metadata = run_parallel(jobs, parallel)
+ 230:     metadata.sort(key=lambda item: item["index"])
+ 231:     return metadata
+ 232: 
+ 233: 
+ 234: def main() -> None:
+ 235:     args = parse_args()
+ 236:     validate_args(args)
+ 237:     try:
+ 238:         metadata = generate_slides(
+ 239:             topic=args.topic,
+ 240:             slides=args.slides,
+ 241:             username=args.username,
+ 242:             style_seed=args.style_seed,
+ 243:             parallel=args.parallel,
+ 244:         )
+ 245:     except KeyboardInterrupt:
+ 246:         print("\n⛔ Interrupted by user")
+ 247:         sys.exit(130)
+ 248:     except Exception as exc:
+ 249:         print("[error] Generation failed:", exc)
+ 250:         traceback.print_exc()
+ 251:         sys.exit(1)
+ 252: 
+ 253:     print(json.dumps(metadata, ensure_ascii=False, indent=2))
+ 254: 
+ 255: 
+ 256: if __name__ == "__main__":
+ 257:     try:
+ 258:         main()
+ 259:     except KeyboardInterrupt:
+ 260:         print("\n⛔ Interrupted by user")
+ 261:         sys.exit(130)
+ 262: 
+ 263: # Примеры:
+ 264: # python generate_full_carousel.py --topic "10 ошибок предпринимателей" --slides 3 --username "@anton"
+ 265: # python generate_full_carousel.py --topic "10 ошибок предпринимателей" --slides 3 --username "@anton" --style_seed 42 --parallel 2
+

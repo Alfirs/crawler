@@ -1,0 +1,40 @@
+jobs:
+  - kind: generate
+    payload:
+      account: lynnemux
+      mode: topics
+      topics: ./titles/titles.txt
+      count: 10
+      video_dir: ./videos/anton
+      music_dir: ./music
+      out: ./output
+      font: ./fonts/InstagramSansCondensedCYR-Bold.ttf
+      title_size: 70
+      caption_size: 70
+      text_color: "#FFFFFF"
+      box_color: "#000000"
+      box_alpha: 0
+      dots_scale: 0.12
+      highlight_color: "#FFD966"
+      top_gradient_height: 700
+      top_gradient_strength: 0.90
+      caption_overlay: dots
+      template: lena
+      
+  - kind: post
+    payload:
+      provider: upload_post
+      api_base: https://api.upload-post.com
+      api_key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImtvbGFuLm1vbG9kZXowNEBnbWFpbC5jb20iLCJleHAiOjQ5MTM4Njk5MjAsImp0aSI6ImUyMjcyMTU4LTMwNDMtNDEwMy04YTQxLWFhYTkzMmFhZjc3MyJ9.PeEN5ZDXVOMjOkv9ecbS1ozviWx3tGEmt5sLIXPeAmI"
+      user: "anton_new"
+      platforms:
+        - instagram
+      users:
+        - anton_new
+      folder: ./output/
+      csv: ./output/results.csv
+      start: "13:30"
+      tz: Europe/Moscow
+      interval: 45
+      jitter: 600
+      live: false

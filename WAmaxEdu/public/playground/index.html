@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WAmax Playground</title>
+  <style>
+    :root {
+      --bg: #f7f7f7;
+      --card: #ffffff;
+      --text: #202227;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #21ba4c;
+      --primary-dark: #16913a;
+      --accent: #9e77ed;
+      --danger: #ef4444;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 { margin: 0; font-size: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+    .card h2 { margin: 0 0 8px 0; font-size: 18px; }
+    .card p { margin: 4px 0 12px 0; color: var(--muted); font-size: 14px; }
+    label { display: block; font-weight: 600; margin: 12px 0 6px 0; font-size: 14px; }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
+    }
+    textarea { min-height: 180px; font-family: "JetBrains Mono", monospace; }
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 600;
+      color: #fff;
+      background: var(--primary);
+      transition: all 0.15s ease;
+    }
+    button.secondary { background: var(--accent); }
+    button.ghost { background: #e5e7eb; color: #111827; }
+    button.danger { background: var(--danger); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    .response {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: 10px;
+      padding: 12px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 13px;
+      min-height: 120px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      background: #e0f2fe;
+      color: #0369a1;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-badge.success { background: #dcfce7; color: #166534; }
+    .status-badge.error { background: #fee2e2; color: #991b1b; }
+    .split {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 900px) {
+      .split { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WAmax Playground</h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="healthBadge" class="status-badge">Health: n/a</span>
+      <button class="ghost" onclick="checkHealth()">Ping /health</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h2>Outbound Send</h2>
+        <p>POST /api/v1/integrations/whatsapp/outbound/send</p>
+        <label>Account ID</label>
+        <input id="out-account" placeholder="acct_12345_test">
+        <label>Conversation Ref (optional)</label>
+        <input id="out-conv" placeholder="conv_ref_001">
+        <div class="row">
+          <div>
+            <label>Authorization (optional)</label>
+            <input id="out-auth" placeholder="Bearer ...">
+          </div>
+          <div>
+            <label>Idempotency-Key (required)</label>
+            <div class="row" style="gap:8px; align-items:center;">
+              <input id="out-idem" placeholder="uuid" style="flex:1;">
+              <button class="secondary" style="flex:0 0 auto;" onclick="generateIdem('out-idem')">Generate</button>
+            </div>
+          </div>
+        </div>
+        <label>Message Payload (JSON)</label>
+        <textarea id="out-payload" spellcheck="false"></textarea>
+        <div class="actions">
+          <button onclick="sendOutbound()">Send</button>
+          <button class="secondary" onclick="repeatOutbound()">Repeat (same key)</button>
+          <button class="ghost" onclick="sendOutboundNewKey()">Send with new key</button>
+        </div>
+        <div id="out-response" class="response"></div>
+      </div>
+
+      <div class="card">
+        <h2>Webhook Simulator</h2>
+        <p>POST /api/v1/integrations/whatsapp/inbound/provider-webhook</p>
+        <label>Webhook Body (JSON)</label>
+        <textarea id="webhook-body" spellcheck="false"></textarea>
+        <div class="actions">
+          <button onclick="postWebhook()">Post Webhook</button>
+          <button class="ghost" onclick="loadWebhookPreset()">Load Preset</button>
+        </div>
+        <div id="webhook-response" class="response"></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:16px 0;">
+        <h3>Status Webhook</h3>
+        <p>POST /api/v1/integrations/whatsapp/inbound/provider-status</p>
+        <textarea id="status-body" spellcheck="false"></textarea>
+        <div class="actions">
+          <button onclick="postStatus()">Post Status</button>
+          <button class="ghost" onclick="loadStatusPreset()">Load Preset</button>
+        </div>
+        <div id="status-response" class="response"></div>
+      </div>
+
+      <div class="card">
+        <h2>Channel Connect / Health</h2>
+        <p>POST /channels/connect | /channels/disconnect | GET /channels/health</p>
+        <label>Account ID</label>
+        <input id="channel-account" placeholder="acct_12345_test">
+        <div class="actions">
+          <button onclick="connectChannel()">Connect</button>
+          <button class="ghost" onclick="disconnectChannel()">Disconnect</button>
+          <button class="secondary" onclick="checkChannelHealth()">Health</button>
+        </div>
+        <div id="channel-response" class="response"></div>
+      </div>
+
+      <div class="card">
+        <h2>Messages Viewer</h2>
+        <p>Read conversations/messages</p>
+        <div class="split">
+          <div>
+            <label>Conversations</label>
+            <div class="row">
+              <input id="conv-account" placeholder="accountId">
+              <input id="conv-limit" type="number" min="1" value="20" style="max-width:100px;">
+              <input id="conv-offset" type="number" min="0" value="0" style="max-width:100px;">
+            </div>
+            <button class="ghost" style="margin-top:10px;" onclick="loadConversations()">Load Conversations</button>
+            <div id="conv-response" class="response" style="margin-top:8px;"></div>
+          </div>
+          <div>
+            <label>Messages by Conversation</label>
+            <input id="msg-conv-id" placeholder="conversationId">
+            <div class="row">
+              <input id="msg-limit" type="number" min="1" value="50" style="max-width:100px;">
+              <input id="msg-offset" type="number" min="0" value="0" style="max-width:100px;">
+              <select id="msg-direction" style="max-width:140px;">
+                <option value="">Direction: all</option>
+                <option value="INBOUND">INBOUND</option>
+                <option value="OUTBOUND">OUTBOUND</option>
+              </select>
+            </div>
+            <button class="ghost" style="margin-top:10px;" onclick="loadMessages()">Load Messages</button>
+            <div id="msg-response" class="response" style="margin-top:8px;"></div>
+          </div>
+        </div>
+        <label style="margin-top:14px;">Single Message</label>
+        <div class="row">
+          <input id="single-msg-id" placeholder="messageId">
+          <button class="ghost" style="flex:0 0 auto;" onclick="loadSingleMessage()">Load</button>
+        </div>
+        <div id="single-response" class="response" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const state = {
+      lastOutboundKey: "",
+      lastOutboundPayload: "",
+      lastWebhookPayload: "",
+      lastStatusPayload: ""
+    };
+
+    function setResponse(targetId, data, ok = true) {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+      const body = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+      el.textContent = body;
+      el.classList.remove("success", "error");
+      el.classList.add(ok ? "success" : "error");
+    }
+
+    function buildHeaders(extra = {}) {
+      return Object.assign({ "Content-Type": "application/json" }, extra);
+    }
+
+    function safeParse(text, fallback = {}) {
+      try { return JSON.parse(text); } catch { return fallback; }
+    }
+
+    function generateIdem(id) {
+      const v = crypto.randomUUID ? crypto.randomUUID() : `idem_${Date.now()}`;
+      const el = document.getElementById(id);
+      if (el) el.value = v;
+      state.lastOutboundKey = v;
+    }
+
+    async function sendJson({ url, method = "POST", headers = {}, body = null }) {
+      const init = { method, headers };
+      if (body) init.body = JSON.stringify(body);
+      const res = await fetch(url, init);
+      let parsed;
+      try { parsed = await res.json(); } catch { parsed = await res.text(); }
+      return { status: res.status, ok: res.ok, data: parsed };
+    }
+
+    async function sendOutbound() {
+      const accountId = document.getElementById("out-account").value.trim();
+      const conversationRef = document.getElementById("out-conv").value.trim();
+      const auth = document.getElementById("out-auth").value.trim();
+      const idem = document.getElementById("out-idem").value.trim();
+      const payloadText = document.getElementById("out-payload").value;
+      if (!accountId || !idem) {
+        alert("Account ID and Idempotency-Key are required");
+        return;
+      }
+      const payload = safeParse(payloadText, null);
+      if (!payload) {
+        alert("Payload is not valid JSON");
+        return;
+      }
+      const headers = buildHeaders({ "Idempotency-Key": idem });
+      if (auth) headers["Authorization"] = auth;
+      const body = {
+        channel: "WHATSAPP",
+        accountId,
+        conversationRef: conversationRef || undefined,
+        message: payload
+      };
+      const res = await sendJson({ url: "/api/v1/integrations/whatsapp/outbound/send", headers, body });
+      setResponse("out-response", { status: res.status, data: res.data }, res.ok);
+      state.lastOutboundKey = idem;
+      state.lastOutboundPayload = payloadText;
+    }
+
+    function repeatOutbound() {
+      if (!state.lastOutboundKey) {
+        alert("Send at least once to have an Idempotency-Key");
+        return;
+      }
+      document.getElementById("out-idem").value = state.lastOutboundKey;
+      if (state.lastOutboundPayload) document.getElementById("out-payload").value = state.lastOutboundPayload;
+      sendOutbound();
+    }
+
+    function sendOutboundNewKey() {
+      generateIdem("out-idem");
+      sendOutbound();
+    }
+
+    async function postWebhook() {
+      const bodyText = document.getElementById("webhook-body").value;
+      const payload = safeParse(bodyText, null);
+      if (!payload) {
+        alert("Webhook body is not valid JSON");
+        return;
+      }
+      const res = await sendJson({
+        url: "/api/v1/integrations/whatsapp/inbound/provider-webhook",
+        body: payload
+      });
+      setResponse("webhook-response", { status: res.status, data: res.data }, res.ok);
+      state.lastWebhookPayload = bodyText;
+    }
+
+    async function postStatus() {
+      const bodyText = document.getElementById("status-body").value;
+      const payload = safeParse(bodyText, null);
+      if (!payload) {
+        alert("Status body is not valid JSON");
+        return;
+      }
+      const res = await sendJson({
+        url: "/api/v1/integrations/whatsapp/inbound/provider-status",
+        body: payload
+      });
+      setResponse("status-response", { status: res.status, data: res.data }, res.ok);
+      state.lastStatusPayload = bodyText;
+    }
+
+    async function connectChannel() {
+      const accountId = document.getElementById("channel-account").value.trim();
+      if (!accountId) { alert("Account ID required"); return; }
+      const res = await sendJson({
+        url: "/api/v1/integrations/whatsapp/channels/connect",
+        body: { channel: "WHATSAPP", accountId, mode: "NEW" }
+      });
+      setResponse("channel-response", { status: res.status, data: res.data }, res.ok);
+    }
+
+    async function disconnectChannel() {
+      const accountId = document.getElementById("channel-account").value.trim();
+      if (!accountId) { alert("Account ID required"); return; }
+      const res = await sendJson({
+        url: "/api/v1/integrations/whatsapp/channels/disconnect",
+        body: { channel: "WHATSAPP", accountId }
+      });
+      setResponse("channel-response", { status: res.status, data: res.data }, res.ok);
+    }
+
+    async function checkChannelHealth() {
+      const accountId = document.getElementById("channel-account").value.trim();
+      if (!accountId) { alert("Account ID required"); return; }
+      const res = await fetch(`/api/v1/integrations/whatsapp/channels/health?accountId=${encodeURIComponent(accountId)}`);
+      let data;
+      try { data = await res.json(); } catch { data = await res.text(); }
+      setResponse("channel-response", { status: res.status, data }, res.ok);
+    }
+
+    async function loadConversations() {
+      const accountId = document.getElementById("conv-account").value.trim();
+      const limit = document.getElementById("conv-limit").value || "20";
+      const offset = document.getElementById("conv-offset").value || "0";
+      if (!accountId) { alert("Account ID required"); return; }
+      const params = new URLSearchParams({
+        accountId,
+        channel: "WHATSAPP",
+        limit,
+        offset
+      });
+      const res = await fetch(`/api/v1/messages/conversations?${params.toString()}`);
+      let data;
+      try { data = await res.json(); } catch { data = await res.text(); }
+      setResponse("conv-response", { status: res.status, data }, res.ok);
+    }
+
+    async function loadMessages() {
+      const convId = document.getElementById("msg-conv-id").value.trim();
+      if (!convId) { alert("Conversation ID required"); return; }
+      const limit = document.getElementById("msg-limit").value || "50";
+      const offset = document.getElementById("msg-offset").value || "0";
+      const direction = document.getElementById("msg-direction").value;
+      const params = new URLSearchParams({ limit, offset });
+      if (direction) params.set("direction", direction);
+      const res = await fetch(`/api/v1/messages/conversations/${encodeURIComponent(convId)}/messages?${params.toString()}`);
+      let data;
+      try { data = await res.json(); } catch { data = await res.text(); }
+      setResponse("msg-response", { status: res.status, data }, res.ok);
+    }
+
+    async function loadSingleMessage() {
+      const msgId = document.getElementById("single-msg-id").value.trim();
+      if (!msgId) { alert("Message ID required"); return; }
+      const res = await fetch(`/api/v1/messages/${encodeURIComponent(msgId)}`);
+      let data;
+      try { data = await res.json(); } catch { data = await res.text(); }
+      setResponse("single-response", { status: res.status, data }, res.ok);
+    }
+
+    async function checkHealth() {
+      const badge = document.getElementById("healthBadge");
+      badge.textContent = "Health: checking…";
+      badge.className = "status-badge";
+      const res = await fetch("/health");
+      let data;
+      try { data = await res.json(); } catch { data = await res.text(); }
+      const ok = res.ok;
+      badge.textContent = ok ? "Health: OK" : `Health: ${res.status}`;
+      badge.className = ok ? "status-badge success" : "status-badge error";
+    }
+
+    function loadWebhookPreset() {
+      const sample = {
+        object: "whatsapp_business_account",
+        entry: [{
+          id: "108392019283",
+          changes: [{
+            value: {
+              messaging_product: "whatsapp",
+              metadata: { display_phone_number: "1555023901", phone_number_id: "102938102" },
+              contacts: [{ wa_id: "16382091", profile: { name: "ALice" } }],
+              messages: [{
+                from: "16382091",
+                id: "wamid.HBgLMTIzNDU2Ng5MATR...",
+                timestamp: `${Math.floor(Date.now() / 1000)}`,
+                text: { body: "Hello WAmax!" },
+                type: "text"
+              }]
+            }
+          }]
+        }]
+      };
+      document.getElementById("webhook-body").value = JSON.stringify(sample, null, 2);
+    }
+
+    function loadStatusPreset() {
+      const sample = {
+        object: "whatsapp_business_account",
+        entry: [{
+          id: "108392019283",
+          changes: [{
+            value: {
+              statuses: [{
+                id: "wamid.HBgLMTIzNDU2Ng5MATR...",
+                status: "delivered",
+                timestamp: `${Math.floor(Date.now() / 1000)}`,
+                recipient_id: "16382091"
+              }]
+            }
+          }]
+        }]
+      };
+      document.getElementById("status-body").value = JSON.stringify(sample, null, 2);
+    }
+
+    function loadDefaults() {
+      if (!document.getElementById("out-idem").value) generateIdem("out-idem");
+      document.getElementById("out-payload").value = JSON.stringify({
+        type: "text",
+        text: { body: "Hello from WAmax Playground" }
+      }, null, 2);
+      loadWebhookPreset();
+      loadStatusPreset();
+    }
+
+    window.addEventListener("load", () => {
+      loadDefaults();
+      checkHealth();
+    });
+  </script>
+</body>
+</html>

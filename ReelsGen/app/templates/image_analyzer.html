@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Prompt Generator - Анализ изображений</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .analyzer-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .analyzer-header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #333;
+        }
+        
+        .upload-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: 600;
+        }
+        
+        .file-input-label:hover {
+            transform: translateY(-2px);
+        }
+        
+        .file-name {
+            margin-top: 10px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .style-input {
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            width: 100%;
+        }
+        
+        .style-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .analyze-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .analyze-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+        
+        .analyze-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        
+        .results-section {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-top: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .results-section.active {
+            display: block;
+        }
+        
+        .result-item {
+            margin-bottom: 30px;
+        }
+        
+        .result-item h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        
+        .prompt-box {
+            background: #f8faff;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        
+        .image-preview {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .image-preview img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loading.active {
+            display: block;
+        }
+        
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            background: #fee;
+            border-left: 4px solid #f44;
+            padding: 15px;
+            border-radius: 8px;
+            color: #c33;
+            margin-top: 20px;
+        }
+        
+        .image-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+        
+        .copy-btn:active {
+            background: #4458c2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="analyzer-container">
+            <header class="analyzer-header">
+                <h1>🖼️ Image Prompt Generator</h1>
+                <p class="subtitle">Загрузите изображение для анализа и генерации промпта для нейросети</p>
+                <nav style="margin-top: 15px;">
+                    <a href="/" style="color: #667eea; text-decoration: underline; font-size: 0.95rem;">
+                        ← Вернуться к генератору каруселей
+                    </a>
+                </nav>
+            </header>
+
+            <div class="upload-section">
+                <form id="analyze-form" class="upload-form" enctype="multipart/form-data">
+                    <div>
+                        <label class="file-input-wrapper">
+                            <input type="file" name="file" id="file-input" accept="image/*" required>
+                            <span class="file-input-label">📁 Выбрать изображение</span>
+                        </label>
+                        <div class="file-name" id="file-name"></div>
+                    </div>
+
+                    <div>
+                        <label for="style-input">Стиль изображения (необязательно):</label>
+                        <input 
+                            type="text" 
+                            id="style-input" 
+                            name="style" 
+                            class="style-input"
+                            placeholder="Оставьте пустым для жёлто-черно-оранжевого стиля комиксов"
+                            value=""
+                        >
+                        <small style="display: block; color: #666; margin-top: 5px; font-size: 0.85rem;">
+                            💡 По умолчанию: жёлто-черно-оранжевая палитра, нарисованный стиль комиксов с контрастными тенями
+                        </small>
+                    </div>
+
+                    <div>
+                        <label for="details-input">Дополнительные детали (необязательно):</label>
+                        <textarea 
+                            id="details-input" 
+                            name="details" 
+                            class="style-input"
+                            rows="3"
+                            placeholder="Например: Выразительные эмоции персонажей, динамичная композиция"
+                        ></textarea>
+                    </div>
+
+                    <div style="background: #e8f4f8; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #667eea;">
+                        <p style="margin: 0; font-size: 0.9rem; color: #555;">
+                            <strong>ℹ️ Автоматическая генерация:</strong> После анализа изображения и создания промпта, 
+                            система автоматически сгенерирует новое изображение в жёлто-черно-оранжевом стиле комиксов.
+                        </p>
+                    </div>
+
+                    <button type="submit" class="analyze-btn" id="analyze-btn">
+                        ✨ Анализировать и сгенерировать изображение
+                    </button>
+                </form>
+
+                <div class="loading" id="loading">
+                    <div class="loading-spinner"></div>
+                    <p>Анализируем изображение и генерируем промпт...</p>
+                    <p style="font-size: 0.9rem; color: #666;">Это может занять 30-60 секунд</p>
+                </div>
+            </div>
+
+            <div class="results-section" id="results-section">
+                <div class="result-item">
+                    <h3>📋 Информация об изображении</h3>
+                    <div class="image-info" id="image-info"></div>
+                </div>
+
+                <div class="result-item">
+                    <h3>📝 Описание изображения (от AI)</h3>
+                    <div class="prompt-box" id="description-box"></div>
+                </div>
+
+                <div class="result-item">
+                    <h3>🎨 Промпт для генерации</h3>
+                    <div class="prompt-box" id="prompt-box"></div>
+                    <button class="copy-btn" onclick="copyPrompt()">📋 Копировать промпт</button>
+                </div>
+
+                <div class="result-item" id="generated-image-container" style="display: none;">
+                    <h3>🖼️ Сгенерированное изображение</h3>
+                    <div class="image-preview" id="generated-image-preview"></div>
+                </div>
+            </div>
+
+            <div id="error-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('analyze-form');
+        const fileInput = document.getElementById('file-input');
+        const fileName = document.getElementById('file-name');
+        const loading = document.getElementById('loading');
+        const resultsSection = document.getElementById('results-section');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const errorContainer = document.getElementById('error-container');
+
+        // Отображение имени файла
+        fileInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                fileName.textContent = `Выбран файл: ${e.target.files[0].name}`;
+            } else {
+                fileName.textContent = '';
+            }
+        });
+
+        // Обработка отправки формы
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Проверяем, что файл выбран
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showError('Пожалуйста, выберите файл изображения');
+                return;
+            }
+            
+            const selectedFile = fileInput.files[0];
+            console.log('[Frontend] Отправляем файл:', {
+                name: selectedFile.name,
+                type: selectedFile.type,
+                size: selectedFile.size,
+                lastModified: new Date(selectedFile.lastModified)
+            });
+            
+            const formData = new FormData(form);
+            
+            // Проверяем, что файл добавлен в FormData
+            if (!formData.has('file')) {
+                console.error('[Frontend] ОШИБКА: Файл не найден в FormData');
+                showError('Ошибка: файл не был добавлен в форму');
+                return;
+            }
+            
+                console.log('[Frontend] FormData содержит:', {
+                    file: formData.has('file') ? 'Да' : 'Нет',
+                    style: formData.get('style') || '(дефолтный жёлто-черно-оранжевый)',
+                    details: formData.get('details') || '(не указано)'
+                });
+            
+            // Обновляем сообщение загрузки - теперь всегда генерируем изображение
+            loading.querySelector('p').textContent = 'Анализируем изображение, создаём промпт и генерируем изображение...';
+            loading.querySelector('p:last-child').textContent = 'Это может занять 60-120 секунд (анализ + генерация)';
+            
+            // Показываем загрузку
+            loading.classList.add('active');
+            resultsSection.classList.remove('active');
+            errorContainer.innerHTML = '';
+            analyzeBtn.disabled = true;
+            
+            try {
+                console.log('[Frontend] Отправляем запрос к /analyze-image...');
+                
+                const response = await fetch('/analyze-image', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                console.log('[Frontend] Получен ответ:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                let result;
+                try {
+                    result = await response.json();
+                } catch (jsonError) {
+                    const text = await response.text();
+                    console.error('[Frontend] Ошибка парсинга JSON:', jsonError);
+                    console.error('[Frontend] Ответ сервера:', text);
+                    throw new Error(`Ошибка ответа сервера (${response.status}): ${text.substring(0, 200)}`);
+                }
+                
+                console.log('[Frontend] Результат анализа:', {
+                    success: result.success,
+                    hasDescription: !!result.description,
+                    hasPrompt: !!result.prompt,
+                    imageGenerated: result.image_generated,
+                    hasGeneratedImage: !!result.generated_image_base64
+                });
+                
+                if (response.ok && result.success) {
+                    // Отображаем результаты
+                    displayResults(result);
+                    resultsSection.classList.add('active');
+                    
+                    // Проверяем, было ли сгенерировано изображение
+                    if (result.image_generated && result.generated_image_base64) {
+                        console.log('[Frontend] ✅ Изображение успешно сгенерировано и готово к отображению');
+                    } else if (result.image_generated === false) {
+                        console.warn('[Frontend] ⚠️ Изображение не было сгенерировано');
+                        if (result.image_generation_error) {
+                            console.error('[Frontend] Ошибка генерации:', result.image_generation_error);
+                        }
+                    }
+                } else {
+                    showError(result.error || 'Произошла ошибка при анализе изображения');
+                }
+            } catch (error) {
+                showError('Ошибка при отправке запроса: ' + error.message);
+            } finally {
+                loading.classList.remove('active');
+                analyzeBtn.disabled = false;
+            }
+        });
+
+        function displayResults(result) {
+            // Информация об изображении
+            if (result.image_info) {
+                const info = result.image_info;
+                document.getElementById('image-info').innerHTML = `
+                    <strong>Размер:</strong> ${info.width} × ${info.height} пикселей<br>
+                    <strong>Соотношение сторон:</strong> ${info.aspect_ratio}:1<br>
+                    <strong>Формат:</strong> ${info.format || 'N/A'}
+                `;
+            }
+
+            // Описание от AI
+            if (result.description) {
+                document.getElementById('description-box').textContent = result.description;
+            }
+
+            // Промпт
+            if (result.prompt) {
+                document.getElementById('prompt-box').textContent = result.prompt;
+                window.currentPrompt = result.prompt;
+            }
+
+            // Сгенерированное изображение (base64) - всегда показываем контейнер
+            const container = document.getElementById('generated-image-container');
+            const preview = document.getElementById('generated-image-preview');
+            
+            if (result.generated_image_base64 && result.image_generated) {
+                // Успешно сгенерированное изображение
+                preview.innerHTML = ''; // Очищаем перед добавлением
+                
+                // Создаём изображение из base64
+                const img = document.createElement('img');
+                img.src = `data:image/png;base64,${result.generated_image_base64}`;
+                img.alt = 'Сгенерированное изображение';
+                img.style.maxWidth = '100%';
+                img.style.borderRadius = '8px';
+                img.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+                img.style.display = 'block';
+                img.style.margin = '0 auto';
+                
+                // Добавляем кнопку скачивания
+                const downloadBtn = document.createElement('button');
+                downloadBtn.textContent = '💾 Скачать изображение';
+                downloadBtn.className = 'copy-btn';
+                downloadBtn.style.marginTop = '15px';
+                downloadBtn.style.display = 'block';
+                downloadBtn.style.marginLeft = 'auto';
+                downloadBtn.style.marginRight = 'auto';
+                downloadBtn.onclick = function() {
+                    const link = document.createElement('a');
+                    link.href = img.src;
+                    link.download = 'generated_image_yellow_orange_comic.png';
+                    link.click();
+                };
+                
+                preview.appendChild(img);
+                preview.appendChild(downloadBtn);
+                container.style.display = 'block';
+            } else if (result.image_generated === false) {
+                // Ошибка генерации или изображение не было сгенерировано
+                preview.innerHTML = '';
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                if (result.image_generation_error) {
+                    errorDiv.innerHTML = `
+                        <strong>❌ Не удалось сгенерировать изображение</strong><br>
+                        Ошибка: ${result.image_generation_error}<br>
+                        <small style="margin-top: 10px; display: block;">
+                            Промпт был создан успешно, но генерация изображения не удалась. 
+                            Вы можете скопировать промпт и использовать его вручную.
+                        </small>
+                    `;
+                } else {
+                    errorDiv.innerHTML = `
+                        <strong>⚠️ Изображение не было сгенерировано</strong><br>
+                        <small>Промпт был создан, но изображение не сгенерировано. Проверьте логи сервера.</small>
+                    `;
+                }
+                preview.appendChild(errorDiv);
+                container.style.display = 'block';
+            } else {
+                // Ожидание генерации (не должно быть, но на всякий случай)
+                preview.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">Генерация изображения...</div>';
+                container.style.display = 'block';
+            }
+        }
+
+        function showError(message) {
+            errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+        }
+
+        function copyPrompt() {
+            if (window.currentPrompt) {
+                navigator.clipboard.writeText(window.currentPrompt).then(() => {
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = '✓ Скопировано!';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                    }, 2000);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

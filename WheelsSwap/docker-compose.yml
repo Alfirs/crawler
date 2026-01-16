@@ -1,0 +1,9 @@
+services:
+  bot:
+    build: .
+    command: python -m bot.main
+    env_file: .env
+    volumes:
+      - media:/app/media
+volumes:
+  media:

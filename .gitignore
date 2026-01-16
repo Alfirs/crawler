@@ -1,0 +1,34 @@
+# Secrets and Environment Variables
+.env
+.env.*
+*.env
+env/
+venv/
+.venv/
+secrets.json
+credentials.json
+token.json
+*.key
+*.pem
+*.ps1
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build/Dist
+dist/
+build/
+out/
+bin/
+obj/
+
+# Backups
+_GIT_BACKUPS/

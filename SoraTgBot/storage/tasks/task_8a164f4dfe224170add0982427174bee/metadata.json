@@ -1,0 +1,28 @@
+{
+  "id": "8a164f4dfe224170add0982427174bee",
+  "owner_user_id": 6848681605,
+  "created_at": "2025-11-13T12:24:23.632285+00:00",
+  "updated_at": "2025-11-13T12:24:23.632285+00:00",
+  "subtasks": [
+    {
+      "id": "68a882213de744e5b7212cfc4afc4aa6",
+      "n_generations": 1,
+      "status": "pending",
+      "job_id": null,
+      "record_id": null,
+      "result_urls": [],
+      "downloaded_files": [],
+      "product": {
+        "id": "cfa8d16e293941fab83a58fa768acbf5",
+        "title": "Байк х Макс",
+        "short_description": "Байк х Макс",
+        "image_path": "storage\\uploads\\6848681605\\AQAD8w1rG2BZsUh-.jpg",
+        "image_file_id": "AgACAgIAAxkBAAIFWWkVzcgTfK0BpCWJvMZ7gpX2ssAIAALzDWsbYFmxSHu2BMttvlEOAQADAgADeQADNgQ"
+      },
+      "idea": {
+        "id": "7d7083e07fcb458b9ff9e3f606ab26f6",
+        "text": "Общий сценарий"
+      }
+    }
+  ]
+}

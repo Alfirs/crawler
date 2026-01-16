@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WAmax Playground - Outbound Send</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+            extend: {
+                colors: {
+                "primary": "#21ba54",
+                "background-light": "#f7f7f7",
+                "background-dark": "#1a1a1a",
+                "surface": "#ffffff",
+                },
+                fontFamily: {
+                "display": ["Manrope", "sans-serif"],
+                "mono": ["SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                },
+                borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "2xl": "1.5rem", "full": "9999px"},
+                boxShadow: {
+                    'card': '0px 4px 12px rgba(0, 0, 0, 0.04)',
+                    'subtle': '0px 1px 2px rgba(0, 0, 0, 0.04)'
+                }
+            },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+        /* Custom scrollbar for code editor feel */
+        .code-editor::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .code-editor::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+        }
+        .code-editor::-webkit-scrollbar-thumb {
+            background: #d1d5db; 
+            border-radius: 4px;
+        }
+        .code-editor::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af; 
+        }
+    </style>
+</head>
+<body class="bg-background-light text-[#121713] h-screen overflow-hidden flex flex-col">
+<!-- Top Navbar -->
+<header class="h-16 bg-surface border-b border-[#e5e7eb] flex items-center justify-between px-6 z-20 shrink-0">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-lg bg-gradient-to-br from-primary to-[#189e45] flex items-center justify-center text-white shadow-sm">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
+</div>
+<h1 class="font-bold text-lg tracking-tight">WAmax <span class="text-gray-400 font-medium">Playground</span></h1>
+</div>
+<nav class="flex items-center gap-6">
+<a class="text-sm font-medium text-gray-500 hover:text-primary transition-colors" href="#">Docs</a>
+<a class="text-sm font-medium text-gray-500 hover:text-primary transition-colors flex items-center gap-1" href="#">
+                Health
+                <span class="block size-2 rounded-full bg-primary animate-pulse"></span>
+</a>
+<a class="text-sm font-medium text-gray-500 hover:text-primary transition-colors" href="#">Settings</a>
+<div class="h-8 w-8 rounded-full bg-gray-200 bg-cover bg-center border border-gray-200" data-alt="User avatar profile picture" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCQFCVqpHO1-xQMa3-PuqNUU64vcTZ6Xv0I3sAD8e-nZUGMt_MSPq1tfm05Dh5LG_9yq782cu6sQuITKrdNWqEXgglW846G3f692U2Mxrc5ZuIKyJ42nZm6TdnLYWV9ZVzexTCx2CpN1v7IiLle26WeUT4sOYO6c4T39BXgJWGw-bmy-VnKTkLsypnou8jPWd2Gcv5Pjcy73Ivb80ldCe22ewk58E1UigencrciqGVMOWqlGjgKrg2qj4FlyNsMn0dqPVHqP2oUcVzF");'></div>
+</nav>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-[260px] bg-surface border-r border-[#e5e7eb] flex flex-col py-6 px-3 shrink-0 overflow-y-auto">
+<div class="space-y-1">
+<a class="group flex items-center gap-3 px-3 py-2.5 rounded-lg bg-primary/10 text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[20px] fill-1">send</span>
+<span class="text-sm font-bold">Outbound Send</span>
+</a>
+<a class="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">webhook</span>
+<span class="text-sm font-medium">Webhook Simulator</span>
+</a>
+<a class="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">link</span>
+<span class="text-sm font-medium">Channel Connect</span>
+</a>
+<a class="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">chat</span>
+<span class="text-sm font-medium">Messages Viewer</span>
+</a>
+<a class="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">monitoring</span>
+<span class="text-sm font-medium">Health</span>
+</a>
+</div>
+<div class="mt-auto pt-6 border-t border-gray-100">
+<div class="bg-gray-50 rounded-xl p-4 border border-gray-100">
+<p class="text-xs font-semibold text-gray-500 uppercase mb-2">Current Environment</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-gray-400 text-sm">dns</span>
+<span class="text-sm font-medium text-gray-800">Sandbox - US East</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto bg-background-light p-8">
+<div class="max-w-[800px] mx-auto space-y-6 pb-12">
+<!-- Request Card -->
+<div class="bg-surface rounded-xl shadow-card border border-[#e5e7eb] overflow-hidden">
+<div class="px-6 py-5 border-b border-[#f0f2f5] flex justify-between items-center bg-white">
+<h2 class="text-xl font-extrabold tracking-tight text-gray-900">Outbound Send</h2>
+<span class="px-2.5 py-1 rounded-md bg-blue-50 text-blue-600 text-xs font-bold uppercase tracking-wider border border-blue-100">POST /messages</span>
+</div>
+<div class="p-6 space-y-6">
+<!-- Top Inputs Row -->
+<div class="grid grid-cols-12 gap-5">
+<!-- Channel (Disabled) -->
+<div class="col-span-12 md:col-span-4">
+<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Channel</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-gray-400 text-[18px]">public</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500 font-medium cursor-not-allowed" disabled="" type="text" value="WHATSAPP"/>
+</div>
+</div>
+<!-- Account ID -->
+<div class="col-span-12 md:col-span-8">
+<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Account ID</label>
+<input class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm" placeholder="e.g. acct_12345_test" type="text"/>
+</div>
+</div>
+<!-- Second Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+<!-- Conversation Ref -->
+<div>
+<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Conversation Ref</label>
+<input class="block w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm" placeholder="Optional reference ID" type="text"/>
+</div>
+<!-- Idempotency Key -->
+<div>
+<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Idempotency-Key</label>
+<div class="relative flex">
+<input class="block w-full pl-3 pr-20 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm" placeholder="UUID v4" type="text"/>
+<button class="absolute right-1 top-1 bottom-1 px-3 text-xs font-semibold text-primary hover:bg-primary/5 rounded-md transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">autorenew</span>
+                                        GENERATE
+                                    </button>
+</div>
+</div>
+</div>
+<!-- Authorization -->
+<div>
+<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Authorization</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 text-sm font-mono">Bearer</span>
+<input class="block w-full pl-16 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm" type="password" value="sk_test_51Mz..."/>
+</div>
+</div>
+<!-- JSON Editor -->
+<div>
+<div class="flex justify-between items-end mb-1.5">
+<label class="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Message Payload</label>
+<button class="text-xs text-primary hover:text-green-700 font-medium">Load Template</button>
+</div>
+<div class="relative rounded-lg border border-gray-300 overflow-hidden shadow-inner bg-[#f8fafc]">
+<div class="absolute top-0 left-0 bottom-0 w-8 bg-gray-100 border-r border-gray-200 flex flex-col items-center pt-3 gap-1 text-[10px] text-gray-400 font-mono select-none">
+<span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+</div>
+<textarea class="code-editor form-textarea block w-full pl-10 pr-3 py-3 h-48 bg-transparent border-0 text-sm font-mono text-gray-800 focus:ring-0 resize-none leading-relaxed" spellcheck="false">{
+  "type": "text",
+  "text": {
+    "body": "Hello World, this is a test message from WAmax Playground."
+  }
+}</textarea>
+</div>
+</div>
+<!-- Action Bar -->
+<div class="flex flex-col md:flex-row items-center gap-4 pt-2">
+<button class="w-full md:w-auto flex-1 bg-gradient-to-r from-[#1faf48] to-[#29b47e] hover:shadow-lg hover:shadow-green-500/20 text-white font-bold py-3 px-6 rounded-lg transition-all transform active:scale-[0.98] flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">send</span>
+                                Send Request
+                            </button>
+<button class="w-full md:w-auto flex-1 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-all flex justify-center items-center gap-2 shadow-subtle">
+<span class="material-symbols-outlined text-[20px]">replay</span>
+                                Repeat (Same Key)
+                            </button>
+<button class="w-full md:w-auto flex-1 bg-gradient-to-r from-[#8f68e3] to-[#9d76ed] hover:shadow-lg hover:shadow-purple-500/20 text-white font-bold py-3 px-6 rounded-lg transition-all transform active:scale-[0.98] flex justify-center items-center gap-2">
+<span class="material-symbols-outlined text-[20px]">key</span>
+                                Send with New Key
+                            </button>
+</div>
+</div>
+</div>
+<!-- Response Card -->
+<div class="bg-surface rounded-xl shadow-card border border-[#e5e7eb] overflow-hidden animate-fade-in-up">
+<div class="px-6 py-4 border-b border-[#f0f2f5] flex justify-between items-center bg-gray-50/50">
+<div class="flex items-center gap-3">
+<h3 class="text-sm font-bold text-gray-500 uppercase tracking-wide">Response</h3>
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+<span class="size-1.5 rounded-full bg-green-500"></span>
+                                200 OK
+                            </span>
+</div>
+<div class="flex items-center gap-4 text-xs font-mono text-gray-500">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">schedule</span> 342ms</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">data_usage</span> 1.2kb</span>
+</div>
+</div>
+<div class="relative bg-[#1e293b] p-6 overflow-x-auto">
+<button class="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-white rounded bg-white/5 hover:bg-white/10 transition-colors" title="Copy to clipboard">
+<span class="material-symbols-outlined text-[16px]">content_copy</span>
+</button>
+<pre class="text-sm font-mono text-green-400 leading-relaxed"><code>{
+  <span class="text-purple-400">"message_id"</span>: <span class="text-yellow-300">"wamid.HBgLMTIzNDU2Nzg5MAIVKwA..."</span>,
+  <span class="text-purple-400">"status"</span>: <span class="text-yellow-300">"accepted"</span>,
+  <span class="text-purple-400">"timestamp"</span>: <span class="text-blue-300">1682947200</span>,
+  <span class="text-purple-400">"meta"</span>: {
+    <span class="text-purple-400">"api_version"</span>: <span class="text-yellow-300">"v16.0"</span>,
+    <span class="text-purple-400">"trace_id"</span>: <span class="text-yellow-300">"req_8923749823"</span>
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

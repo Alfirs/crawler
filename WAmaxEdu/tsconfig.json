@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2020",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@/*": ["src/*"],
+      "@auth/*": ["src/modules/auth/src/*"],
+      "@users/*": ["src/modules/users/src/*"],
+      "@integrations/*": ["src/modules/integrations/src/*"],
+      "@messages/*": ["src/modules/messages/src/*"],
+      "@notifications/*": ["src/modules/notifications/src/*"],
+      "@reports/*": ["src/modules/reports/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "evolution-api-main"]
+}

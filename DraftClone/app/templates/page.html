@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Carousel</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Готовая карусель</h1>
+    <div class="grid">
+      {% for img in images %}
+      <div class="card"><img src="{{ img }}" alt="Slide preview" /></div>
+      {% endfor %}
+    </div>
+    <a class="btn" href="{{ zip_url }}{% if token %}?token={{ token }}{% endif %}">Скачать ZIP</a>
+  </div>
+</body>
+</html>

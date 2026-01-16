@@ -1,0 +1,11 @@
+pillow
+opencv-python
+numpy
+aiogram==3.*
+pydantic-settings
+python-dotenv
+pytest
+httpx
+fastapi
+uvicorn
+python-multipart

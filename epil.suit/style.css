@@ -1,0 +1,128 @@
+/* === БАЗА / ТЕМА === */
+:root{
+  /* Теплая палитра, близко к beauty */
+  --bg:#fff;
+  --bg-alt:#faf7f4;
+  --text:#1e1e1e;
+  --muted:#6b6b6b;
+  --brand:#6c4f3d;       /* тёплый коричнево-кофейный */
+  --brand-2:#b89278;     /* светлый акцент */
+  --card:#ffffff;
+  --shadow:0 10px 30px rgba(27, 16, 7, .08);
+  --radius:14px;
+  --radius-sm:10px;
+  --container:1200px;
+}
+
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  color:var(--text);
+  background:var(--bg);
+  font:16px/1.6 "Manrope","Inter",system-ui,-apple-system,Segoe UI,Roboto,Arial;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+img{max-width:100%;display:block}
+
+/* Контейнер/секции */
+.container{max-width:var(--container);margin:0 auto;padding:0 20px}
+.section{padding:72px 0}
+.section.alt{background:var(--bg-alt)}
+h1,h2,h3{margin:0 0 12px;line-height:1.25;letter-spacing:.2px}
+h1{font-size:44px}
+h2{font-size:28px}
+h3{font-size:18px}
+p{margin:0 0 14px;color:var(--muted)}
+
+/* Хедер */
+.site-header{
+  position:sticky;top:0;z-index:20;background:rgba(255,255,255,.9);
+  backdrop-filter:saturate(180%) blur(8px);
+  box-shadow:0 6px 18px rgba(0,0,0,.04);
+}
+.site-header .container{
+  display:flex;align-items:center;gap:28px;padding:14px 0;
+}
+.brand{font-weight:800;font-size:18px;color:var(--brand)}
+.nav{margin-left:auto;display:flex;gap:22px}
+.nav a{
+  text-decoration:none;color:#333;padding:8px 6px;border-radius:8px;
+}
+.nav a:hover{background:rgba(184,146,120,.12)}
+
+/* Кнопки */
+.btn{
+  display:inline-block;padding:12px 18px;border-radius:999px;border:none;
+  background:var(--brand);color:#fff;cursor:pointer;font-weight:700;
+  box-shadow:0 6px 18px rgba(108,79,61,.25);transition:.2s;
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 10px 24px rgba(108,79,61,.28)}
+.btn-outline{
+  background:#fff;color:var(--brand);border:1px solid rgba(108,79,61,.25);
+  box-shadow:none;
+}
+.btn-outline:hover{background:rgba(184,146,120,.12)}
+
+/* HERO 2-колонки */
+.hero{padding:84px 0;background:
+  radial-gradient(1200px 500px at 10% -10%, #f4eae2 0%, transparent 60%),
+  radial-gradient(1000px 400px at 90% 10%, #efe4dc 0%, transparent 55%),
+  var(--bg);
+}
+.hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+.sub{color:var(--muted);font-size:18px}
+.promo{
+  margin:16px 0 22px;display:inline-flex;gap:8px;align-items:center;
+  padding:10px 14px;border-radius:999px;background:#fff;border:1px dashed rgba(108,79,61,.35)
+}
+.trust{display:flex;gap:18px;flex-wrap:wrap;color:#5a5a5a;margin:14px 0 24px}
+.hero-media{
+  aspect-ratio: 4 / 3; border-radius:var(--radius);overflow:hidden;
+  box-shadow:var(--shadow);background:#ddd;
+}
+
+/* Сетка карточек цен */
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px}
+@media (max-width:1100px){ .grid{grid-template-columns:repeat(3,1fr)} }
+@media (max-width:720px){ .grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:520px){ .grid{grid-template-columns:1fr} }
+
+.card{
+  background:var(--card);border-radius:var(--radius);padding:18px;
+  box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.04);transition:.2s;
+}
+.card:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(27,16,7,.12)}
+.card h3{font-weight:800}
+.price{font-size:22px;font-weight:800;color:#2a2a2a;margin:10px 0 14px}
+
+/* Почему мы / отзывы */
+.cols{columns:2;gap:28px}
+.reviews blockquote{
+  margin:0 0 14px;padding:14px;border-left:4px solid var(--brand);
+  background:#fff;border-radius:var(--radius-sm);box-shadow:var(--shadow)
+}
+
+/* Форма лида */
+.lead{scroll-margin-top:100px}
+.lead .lead-form{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:640px
+}
+.lead-form input{
+  padding:14px 16px;border:1px solid #ded5ce;border-radius:12px;
+  background:#fff;transition:border .2s, box-shadow .2s
+}
+.lead-form input:focus{outline:none;border-color:var(--brand-2);box-shadow:0 0 0 4px rgba(184,146,120,.15)}
+.lead-form button{grid-column:1/-1}
+.form-msg{margin-top:6px;color:var(--brand);min-height:1.2em}
+
+.policy{color:#8c8c8c;font-size:13px;margin-top:8px}
+
+/* Футер */
+.site-footer{border-top:1px solid #eee;background:var(--bg);padding:18px 0;color:#777}
+
+/* Мобилки */
+@media (max-width:900px){
+  .hero .wrap{grid-template-columns:1fr}
+}

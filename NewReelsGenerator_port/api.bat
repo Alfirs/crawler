@@ -1,0 +1,1 @@
+uvicorn orchestrator:app --port 8000

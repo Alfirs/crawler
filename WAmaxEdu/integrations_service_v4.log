@@ -1,0 +1,4 @@
+
+> wamaxedu-platform@1.0.0 start:integrations
+> tsx ./src/modules/integrations/src/main.ts
+

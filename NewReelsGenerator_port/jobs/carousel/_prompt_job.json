@@ -1,0 +1,32 @@
+{
+  "username": "alfirs.py",
+  "slides": [
+    {
+      "type": "cover",
+      "title": "Я сегодня в ударе",
+      "bg": {
+        "mode": "photo",
+        "path": "D:\\VsCode\\NewReelsGenerator_port\\output\\tmp_assets_manual\\manual_bg.png"
+      },
+      "img_prompt": "Я сегодня в ударе, high-impact sales poster illustration, brutal high-contrast orange and black palette, dramatic cinematic lighting, hard shadows, aggressive marketing energy, gritty comic-book cover style, no text, no typography, centered composition, cinematic depth, 4k"
+    },
+    {
+      "type": "text",
+      "title": "Как ковбой",
+      "bg": {
+        "mode": "photo",
+        "path": "D:\\VsCode\\NewReelsGenerator_port\\output\\tmp_assets_manual\\manual_bg.png"
+      },
+      "img_prompt": "Как ковбой, high-impact sales poster illustration, brutal high-contrast orange and black palette, dramatic cinematic lighting, hard shadows, aggressive marketing energy, gritty comic-book cover style, no text, no typography, centered composition, cinematic depth, 4k"
+    },
+    {
+      "type": "text",
+      "title": "И как каждый день",
+      "bg": {
+        "mode": "photo",
+        "path": "D:\\VsCode\\NewReelsGenerator_port\\output\\tmp_assets_manual\\manual_bg.png"
+      },
+      "img_prompt": "И как каждый день, high-impact sales poster illustration, brutal high-contrast orange and black palette, dramatic cinematic lighting, hard shadows, aggressive marketing energy, gritty comic-book cover style, no text, no typography, centered composition, cinematic depth, 4k"
+    }
+  ]
+}
