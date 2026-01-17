@@ -277,11 +277,13 @@ def process_classify_job_inline(source_id: int, db: Session):
     if not message_ids:
         return
     
-    # Get existing lead message_ids
-    existing_leads = db.query(Lead.message_id).filter(Lead.message_id.in_(message_ids)).all()
+    # Get existing lead message_ids for this source efficiently
+    # Avoid passing huge list of IDs to IN clause (causes "too many SQL variables")
+    existing_leads = db.query(Lead.message_id).join(Message, Lead.message_id == Message.id).filter(Message.source_id == source_id).all()
     existing_ids = set(l[0] for l in existing_leads)
     
     # Determine messages to process
+    # message_ids is already fetched
     to_process_ids = [mid for mid in message_ids if mid not in existing_ids]
     
     if not to_process_ids:
@@ -370,8 +372,9 @@ def process_classify_job(job_id: int, source_id: int, use_llm: bool):
         message_ids = db.query(Message.id).filter(Message.source_id == source_id).all()
         message_ids = [m[0] for m in message_ids]
         
-        # Get existing lead message_ids
-        existing_leads = db.query(Lead.message_id).filter(Lead.message_id.in_(message_ids)).all()
+        # Get existing lead message_ids efficienty
+        existing_leads = db.query(Lead.message_id).join(Message, Lead.message_id == Message.id).filter(Message.source_id == source_id).all()
+        existing_ids = set(l[0] for l in existing_leads)
         existing_ids = set(l[0] for l in existing_leads)
         
         # Determine messages to process
