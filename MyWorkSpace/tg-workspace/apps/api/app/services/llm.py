@@ -325,7 +325,39 @@ def uniqualize_message(template: str, variations: int = 3) -> List[str]:
         else:
             return [template]
             
+    except Exception as e:
+        logger.error(f"Uniqualization error: {e}")
         return [template]
+
+def paraphrase_message(text: str) -> str:
+    """
+    Rewrite text to make it unique while preserving meaning
+    """
+    client = get_client()
+    
+    prompt = f"""Перепиши это сообщение другими словами, но сохрани смысл и тон.
+Это нужно для отправки в другой чат, чтобы текст не был идентичным дублем.
+Не меняй ключевую суть (вакансия, условия, контакты).
+Делай текст естественным, как будто его написал человек.
+
+ОРИГИНАЛ:
+{text}
+
+Ответь ТОЛЬКО текстом нового сообщения. Без кавычек "Вот вариант"."""
+
+    try:
+        response = client.chat.completions.create(
+            model=FLASH_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9, # High creativity for variations
+            max_tokens=800,
+        )
+        
+        return response.choices[0].message.content.strip()
+        
+    except Exception as e:
+        logger.error(f"Paraphrase error: {e}")
+        return text
 
 def test_connection() -> Dict[str, Any]:
     """Test Gemini API connection"""

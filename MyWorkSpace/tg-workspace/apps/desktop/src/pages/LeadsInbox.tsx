@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     Search, Filter, SortAsc, RefreshCw, ExternalLink,
-    Star, Clock, MessageSquare, Ban
+    Star, Clock, MessageSquare, Ban, Target
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { leadsApi } from '../lib/api'
+import { leadsApi, workspacesApi } from '../lib/api'
 
 interface Lead {
     id: number
@@ -21,6 +21,12 @@ interface Lead {
     do_not_contact: boolean
     contact_count: number
     outreach_count: number
+}
+
+interface Workspace {
+    id: number
+    name: string
+    description?: string
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -52,17 +58,38 @@ const CATEGORY_LABELS: Record<string, string> = {
 }
 
 export default function LeadsInbox() {
-    const { currentWorkspace, addNotification } = useStore()
+    const { currentWorkspace, setCurrentWorkspace, addNotification, userProfessions } = useStore()
     const navigate = useNavigate()
     const [leads, setLeads] = useState<Lead[]>([])
     const [loading, setLoading] = useState(true)
+    const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+    const [loadingWorkspaces, setLoadingWorkspaces] = useState(false)
     const [filters, setFilters] = useState({
         status: '',
         category: '',
+        profession: '', // will be set from userProfessions
         minScore: 0,
         sortBy: 'total_score',
         sortOrder: 'desc',
     })
+
+    // Set default profession filter from user professions
+    useEffect(() => {
+        if (userProfessions.length > 0 && !filters.profession) {
+            setFilters(prev => ({ ...prev, profession: userProfessions[0] }))
+        }
+    }, [userProfessions])
+
+    // Load workspaces on mount if no current workspace
+    useEffect(() => {
+        if (!currentWorkspace) {
+            setLoadingWorkspaces(true)
+            workspacesApi.list()
+                .then(res => setWorkspaces(res.data))
+                .catch(err => console.error('Failed to load workspaces:', err))
+                .finally(() => setLoadingWorkspaces(false))
+        }
+    }, [currentWorkspace])
 
     useEffect(() => {
         if (currentWorkspace) {
@@ -78,6 +105,7 @@ export default function LeadsInbox() {
             const res = await leadsApi.list(currentWorkspace.id, {
                 status: filters.status || undefined,
                 category: filters.category || undefined,
+                profession: filters.profession || undefined,
                 min_score: filters.minScore > 0 ? filters.minScore : undefined,
                 sort_by: filters.sortBy,
                 sort_order: filters.sortOrder,
@@ -103,19 +131,48 @@ export default function LeadsInbox() {
         return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
     }
 
+    const handleWorkspaceSelect = (workspaceId: number) => {
+        const ws = workspaces.find(w => w.id === workspaceId)
+        if (ws) {
+            setCurrentWorkspace(ws)
+        }
+    }
+
     if (!currentWorkspace) {
         return (
             <div className="card text-center py-12">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">📁 Выберите воркспейс</h2>
                 <p className="text-gray-600 mb-6">
-                    Для просмотра лидов необходимо выбрать или создать воркспейс
+                    Для просмотра лидов необходимо выбрать воркспейс
                 </p>
-                <button
-                    onClick={() => navigate('/workspaces')}
-                    className="btn-primary"
-                >
-                    Перейти к воркспейсам
-                </button>
+                {loadingWorkspaces ? (
+                    <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-primary-500 border-t-transparent"></div>
+                    </div>
+                ) : workspaces.length === 0 ? (
+                    <div>
+                        <p className="text-gray-500 mb-4">Нет доступных воркспейсов</p>
+                        <button
+                            onClick={() => navigate('/workspaces')}
+                            className="btn-primary"
+                        >
+                            Создать воркспейс
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center gap-4">
+                        <select
+                            className="px-4 py-3 rounded-lg border border-gray-200 bg-white text-gray-800 text-lg focus:outline-none focus:ring-2 focus:ring-primary-500 min-w-[250px]"
+                            defaultValue=""
+                            onChange={(e) => handleWorkspaceSelect(Number(e.target.value))}
+                        >
+                            <option value="" disabled>Выберите воркспейс...</option>
+                            {workspaces.map(ws => (
+                                <option key={ws.id} value={ws.id}>{ws.name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
         )
     }

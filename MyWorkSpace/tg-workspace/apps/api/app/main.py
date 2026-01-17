@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from app.db.database import engine, Base
-from app.api import workspaces, sources, messages, leads, outreach, templates, settings, gamification, llm, telegram, autopost
+from app.api import workspaces, sources, messages, leads, outreach, templates, settings, gamification, llm, telegram, autopost, jobs
 
 load_dotenv()
 
@@ -16,6 +16,11 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     # Startup: Create database tables
     Base.metadata.create_all(bind=engine)
+    
+    # Initialize Telegram service
+    from app.services.telegram_client import telegram_service
+    await telegram_service.startup()
+    
     yield
     # Shutdown: cleanup if needed
 
@@ -26,13 +31,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS for Electron app
+# CORS for Electron app and web frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Allows all origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Include routers
@@ -47,6 +52,7 @@ app.include_router(gamification.router, prefix="/api/gamification", tags=["Gamif
 app.include_router(llm.router, prefix="/api/llm", tags=["LLM"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["Telegram"])
 app.include_router(autopost.router, prefix="/api/autopost", tags=["Autopost"])
+app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
 
 @app.get("/")
 async def root():

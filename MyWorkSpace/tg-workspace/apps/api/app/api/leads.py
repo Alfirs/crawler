@@ -22,6 +22,7 @@ class LeadResponse(BaseModel):
     message_id: int
     type: str
     category: str
+    target_professions: Optional[List[str]] = None
     fit_score: float
     money_score: float
     recency_score: float
@@ -73,6 +74,7 @@ def list_leads(
     status: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
     type: Optional[str] = Query(None),
+    profession: Optional[str] = Query(None, description="Filter by target profession"),
     min_score: float = Query(0.0, ge=0.0, le=1.0),
     sort_by: str = Query("total_score", pattern="^(total_score|created_at|status)$"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
@@ -93,6 +95,9 @@ def list_leads(
         query = query.filter(Lead.category == category)
     if type:
         query = query.filter(Lead.type == type)
+    if profession:
+        # Filter leads that have this profession in their target_professions JSON array
+        query = query.filter(Lead.target_professions.contains([profession]))
     if min_score > 0:
         query = query.filter(Lead.total_score >= min_score)
     if not include_dnc:
@@ -116,6 +121,7 @@ def list_leads(
             message_id=lead.message_id,
             type=lead.type,
             category=lead.category,
+            target_professions=lead.target_professions,
             fit_score=lead.fit_score,
             money_score=lead.money_score,
             recency_score=lead.recency_score,

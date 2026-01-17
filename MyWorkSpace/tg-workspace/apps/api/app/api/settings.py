@@ -1,13 +1,14 @@
 """
 Settings API routes
 """
-from typing import Optional
+import json
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.db.database import get_db
-from app.db.models import Setting, GoalMode
+from app.db.models import Setting, GoalMode, Profession
 from app.services.antispam import AntiSpamService
 
 router = APIRouter()
@@ -22,6 +23,8 @@ DEFAULT_SETTINGS = {
     "followup_cooldown_hours": "48",
     "goal_mode": "normal",
     "gemini_api_key": "",
+    "user_professions": "[]",  # JSON array of profession codes
+    "onboarding_completed": "false",
 }
 
 
@@ -83,3 +86,70 @@ def get_current_quota(db: Session = Depends(get_db)):
 def get_risk_assessment(db: Session = Depends(get_db)):
     antispam = AntiSpamService(db)
     return antispam.get_risk_assessment()
+
+
+# ============= PROFESSIONS =============
+
+PROFESSION_LABELS = {
+    "smm": "SMM-специалист",
+    "designer": "Дизайнер",
+    "targetolog": "Таргетолог",
+    "reelsmaker": "Рилсмейкер / Монтажер",
+    "techspec": "Техспец (GetCourse, боты)",
+    "copywriter": "Копирайтер / Сценарист",
+    "marketer": "Маркетолог",
+    "ad_buyer": "Закупщик рекламы",
+    "assistant": "Ассистент",
+    "parsing": "Парсинг / Рассылки",
+    "lawyer": "Юрист / Бухгалтер",
+    "avitolog": "Авитолог",
+    "producer": "Продюсер (запуски)",
+    "other": "Другое",
+}
+
+
+@router.get("/professions/list")
+def get_all_professions():
+    """Get list of all available professions with labels"""
+    return [
+        {"code": p.value, "label": PROFESSION_LABELS.get(p.value, p.value)}
+        for p in Profession
+    ]
+
+
+class ProfessionsUpdate(BaseModel):
+    professions: List[str]
+
+
+@router.get("/professions/user")
+def get_user_professions(db: Session = Depends(get_db)):
+    """Get current user's selected professions"""
+    value = get_setting_value(db, "user_professions", "[]")
+    try:
+        professions = json.loads(value)
+    except json.JSONDecodeError:
+        professions = []
+    
+    return {
+        "professions": professions,
+        "onboarding_completed": get_setting_value(db, "onboarding_completed", "false") == "true"
+    }
+
+
+@router.put("/professions/user")
+def set_user_professions(data: ProfessionsUpdate, db: Session = Depends(get_db)):
+    """Set user's selected professions"""
+    valid_codes = [p.value for p in Profession]
+    
+    # Validate profession codes
+    for p in data.professions:
+        if p not in valid_codes:
+            raise HTTPException(status_code=400, detail=f"Invalid profession: {p}")
+    
+    set_setting_value(db, "user_professions", json.dumps(data.professions))
+    set_setting_value(db, "onboarding_completed", "true")
+    
+    return {
+        "professions": data.professions,
+        "onboarding_completed": True
+    }

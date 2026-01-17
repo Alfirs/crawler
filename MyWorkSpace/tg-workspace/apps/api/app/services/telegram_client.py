@@ -38,19 +38,91 @@ class TelegramService:
         self.api_id = api_id
         self.api_hash = api_hash
         
+        # Save credentials to .env for persistence
+        self._update_env_file(api_id, api_hash)
+        
+        await self._init_client()
+        return {"connected": True, "authorized": self.is_authorized}
+
+    async def startup(self):
+        """Auto-startup: Load credentials from env and connect if possible"""
+        import os
+        from dotenv import load_dotenv
+        
+        # Reload env to be sure
+        env_path = Path(__file__).parent.parent.parent.parent / ".env"
+        load_dotenv(env_path)
+        
+        api_id_str = os.getenv("TELEGRAM_API_ID")
+        api_hash = os.getenv("TELEGRAM_API_HASH")
+        
+        if api_id_str and api_hash:
+            try:
+                self.api_id = int(api_id_str)
+                self.api_hash = api_hash
+                print(f"DEBUG: Auto-initializing Telegram client with ID: {self.api_id}")
+                await self._init_client()
+            except Exception as e:
+                print(f"ERROR: Auto-startup failed: {e}")
+
+    async def _init_client(self):
+        """Internal client initialization logic"""
+        if not self.api_id or not self.api_hash:
+            raise ValueError("API credentials missing")
+
         session_file = SESSION_DIR / "tg_workspace.session"
+        print(f"DEBUG: Resolving session file: {session_file.absolute()}")
         
         self.client = TelethonClient(
             str(session_file),
-            api_id,
-            api_hash,
-            system_version="4.16.30-vxCUSTOM"
+            self.api_id,
+            self.api_hash,
+            system_version="Windows 11",
+            device_model="Desktop",
+            app_version="5.0.1",
+            lang_code="en",
+            system_lang_code="en"
         )
         
-        await self.client.connect()
-        self.is_authorized = await self.client.is_user_authorized()
+        try:
+            await self.client.connect()
+            self.is_authorized = await self.client.is_user_authorized()
+            print(f"DEBUG: Client connected. Authorized: {self.is_authorized}")
+        except Exception as e:
+            print(f"ERROR: Connection failed: {e}")
+            self.client = None
+            raise
+
+    def _update_env_file(self, api_id: int, api_hash: str):
+        """Update .env file with new credentials"""
+        env_path = Path(__file__).parent.parent.parent.parent / ".env"
         
-        return {"connected": True, "authorized": self.is_authorized}
+        try:
+            # Read existing
+            lines = []
+            if env_path.exists():
+                with open(env_path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+            
+            # Remove existing keys
+            lines = [l for l in lines if not l.startswith("TELEGRAM_API_ID=") and not l.startswith("TELEGRAM_API_HASH=")]
+            
+            # Append new
+            if lines and not lines[-1].endswith('\n'):
+                lines[-1] += '\n'
+            
+            lines.append(f"\n# Telegram Credentials\n")
+            lines.append(f"TELEGRAM_API_ID={api_id}\n")
+            lines.append(f"TELEGRAM_API_HASH={api_hash}\n")
+            
+            # Write back
+            with open(env_path, 'w', encoding='utf-8') as f:
+                f.writelines(lines)
+            
+            print(f"DEBUG: Setup updated .env at {env_path}")
+            
+        except Exception as e:
+            print(f"ERROR: Failed to update .env: {e}")
     
     async def start_auth(self, phone: str) -> Dict[str, Any]:
         """Start phone authentication"""
@@ -61,6 +133,15 @@ class TelegramService:
         
         try:
             result = await self.client.send_code_request(phone)
+            print(f"DEBUG: Send code result type: {type(result)}")
+            print(f"DEBUG: Phone code hash: {result.phone_code_hash}")
+            if hasattr(result, 'type'):
+                print(f"DEBUG: Code delivery type: {result.type}")
+            if hasattr(result, 'next_type'):
+                print(f"DEBUG: Next code type: {result.next_type}")
+            if hasattr(result, 'timeout'):
+                print(f"DEBUG: Timeout: {result.timeout}")
+                
             self.phone_code_hash = result.phone_code_hash
             
             return {
@@ -73,6 +154,90 @@ class TelegramService:
                 "status": "error",
                 "message": str(e)
             }
+
+    async def start_qr_auth(self) -> Dict[str, Any]:
+        """Start QR code authentication"""
+        if not self.client:
+            raise ValueError("Client not initialized")
+            
+        try:
+            if not self.client.is_connected():
+                await self.client.connect()
+                
+            qr_login = await self.client.qr_login()
+            self._qr_login = qr_login
+            self._qr_status = {"status": "waiting", "message": "Waiting for scan"}
+            
+            # Cancel existing task if any
+            if hasattr(self, '_qr_task') and self._qr_task:
+                self._qr_task.cancel()
+                
+            # Start background monitoring
+            self._qr_task = asyncio.create_task(self._monitor_qr_login(qr_login))
+            
+            return {
+                "status": "qr_generated",
+                "url": qr_login.url,
+                "token_base64": qr_login.url 
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
+
+    async def _monitor_qr_login(self, qr_login):
+        """Background task to wait for QR scan"""
+        print("DEBUG: Starting QR monitor task")
+        try:
+            # This waits indefinitely until scan or error
+            user = await qr_login.wait()
+            print(f"DEBUG: QR Scan success! User: {user}")
+            
+            self.is_authorized = True
+            me = await self.client.get_me()
+            self._qr_status = {
+                "status": "authorized",
+                "user": {
+                    "id": me.id,
+                    "username": me.username
+                }
+            }
+            
+        except SessionPasswordNeededError:
+            print("DEBUG: SessionPasswordNeededError in background task")
+            self._qr_status = {
+                "status": "2fa_required",
+                "message": "Two-step verification required"
+            }
+            
+        except Exception as e:
+            print(f"DEBUG: QR Monitor Error: {e}")
+            if "expired" in str(e).lower():
+                self._qr_status = {"status": "expired", "message": "QR code expired"}
+            else:
+                self._qr_status = {"status": "error", "message": str(e)}
+
+    async def check_qr_auth(self) -> Dict[str, Any]:
+        """Check status of QR authentication"""
+        if not hasattr(self, '_qr_status'):
+             # Fallback if task hasn't started
+             return {"status": "waiting", "message": "Initializing..."}
+             
+        # If still waiting, double check actual auth state just in case
+        if self._qr_status["status"] == "waiting":
+             if self.client and await self.client.is_user_authorized():
+                 self.is_authorized = True
+                 me = await self.client.get_me()
+                 self._qr_status = {
+                    "status": "authorized",
+                    "user": {
+                        "id": me.id,
+                        "username": me.username
+                    }
+                }
+
+        return self._qr_status
     
     async def verify_code(self, code: str) -> Dict[str, Any]:
         """Verify phone code"""
@@ -347,6 +512,91 @@ class TelegramService:
         """Disconnect client"""
         if self.client:
             await self.client.disconnect()
+
+    async def import_history(
+        self, 
+        link: str, 
+        limit: int = 100, 
+        offset_date: Optional[datetime] = None
+    ) -> Dict[str, Any]:
+        """
+        Import history from a chat link
+        
+        Args:
+            link: Chat username, invite link, or ID
+            limit: Maximum number of messages to fetch
+            offset_date: Only fetch messages newer than this date
+        """
+        if not self.client or not self.is_authorized:
+            raise ValueError("Not authorized")
+            
+        try:
+            # 1. Resolve entity
+            entity = await self.client.get_entity(link)
+            
+            # 2. Get basic info
+            chat_title = getattr(entity, 'title', None)
+            if not chat_title:
+                chat_title = f"{getattr(entity, 'first_name', '')} {getattr(entity, 'last_name', '')}".strip()
+            
+            # 3. Iterate messages
+            messages = []
+            
+            # Telethon's iter_messages arguments:
+            # offset_date: messages OLDER than this date (not what we want usually for "since date")
+            # But wait, telethon iterates backwards (newest to oldest).
+            # If we want messages SINCE a date, we actually want messages WHERE date > offset_date.
+            # Telethon has `reverse=True` to iterate oldest to newest, but default is newest to oldest.
+            # If default (Newest->Oldest): stop when message.date < offset_date.
+            
+            async for msg in self.client.iter_messages(entity, limit=limit):
+                if offset_date and msg.date.replace(tzinfo=None) < offset_date.replace(tzinfo=None):
+                    break
+                    
+                if not msg.text:
+                    continue
+                    
+                sender_name = "Unknown"
+                sender_id = None
+                sender_username = None
+                
+                if msg.sender:
+                    sender_id = msg.sender.id
+                    if isinstance(msg.sender, User):
+                        sender_name = f"{msg.sender.first_name or ''} {msg.sender.last_name or ''}".strip()
+                        sender_username = msg.sender.username
+                    else:
+                        sender_name = getattr(msg.sender, 'title', 'Unknown')
+                
+                messages.append({
+                    "id": msg.id, # Message ID in chat
+                    "date": msg.date.isoformat(),
+                    "text": msg.text,
+                    "sender_id": sender_id,
+                    "sender_name": sender_name,
+                    "sender_username": sender_username,
+                    "is_outgoing": msg.out,
+                    "reply_to_msg_id": msg.reply_to_msg_id if msg.reply_to else None,
+                    # Raw data for potential future use
+                    "raw_json": {
+                        "id": msg.id,
+                        "date": msg.date.isoformat(),
+                        "chat_id": entity.id
+                    }
+                })
+                
+            return {
+                "status": "success",
+                "chat_title": chat_title,
+                "chat_id": entity.id,
+                "messages": messages
+            }
+            
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": str(e)
+            }
 
 
 # Global instance

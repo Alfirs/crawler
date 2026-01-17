@@ -5,8 +5,9 @@ import {
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { useEffect, useState } from 'react'
-import { gamificationApi } from '../lib/api'
+import { gamificationApi, settingsApi } from '../lib/api'
 import Notifications from './Notifications'
+import OnboardingModal from './OnboardingModal'
 
 const navItems = [
     { path: '/', icon: Home, label: '🏠 Dashboard', emoji: '🏠' },
@@ -19,9 +20,17 @@ const navItems = [
 ]
 
 export default function Layout() {
-    const { currentWorkspace, gamificationData, setGamificationData } = useStore()
+    const {
+        currentWorkspace,
+        gamificationData,
+        setGamificationData,
+        onboardingCompleted,
+        setOnboardingCompleted,
+        setUserProfessions
+    } = useStore()
     const location = useLocation()
     const [streakFire, setStreakFire] = useState(false)
+    const [showOnboarding, setShowOnboarding] = useState(false)
 
     useEffect(() => {
         // Load gamification data
@@ -31,7 +40,23 @@ export default function Layout() {
                 setStreakFire(true)
             }
         }).catch(console.error)
+
+        // Check onboarding status
+        settingsApi.getUserProfessions().then(res => {
+            setUserProfessions(res.data.professions || [])
+            const completed = res.data.onboarding_completed
+            setOnboardingCompleted(completed)
+            if (!completed) {
+                setShowOnboarding(true)
+            }
+        }).catch(console.error)
     }, [])
+
+    const handleOnboardingComplete = (professions: string[]) => {
+        setUserProfessions(professions)
+        setOnboardingCompleted(true)
+        setShowOnboarding(false)
+    }
 
     return (
         <div className="min-h-screen flex">
@@ -146,6 +171,13 @@ export default function Layout() {
 
             {/* Notifications */}
             <Notifications />
+
+            {/* Onboarding Modal */}
+            <OnboardingModal
+                isOpen={showOnboarding}
+                onComplete={handleOnboardingComplete}
+            />
         </div>
     )
 }
+

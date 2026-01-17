@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict
 import threading
+from app.services.llm import paraphrase_message
 
 # Config file path
 CONFIG_DIR = Path(__file__).parent.parent.parent / "config"
@@ -24,14 +25,17 @@ class AutopostConfig:
     chat_ids: List[int] = None
     chat_names: Dict[int, str] = None  # id -> name mapping
     schedule_time: str = "10:00"  # HH:MM format
-    interval_seconds: int = 60  # seconds between posts
+    interval_seconds: int = 180  # seconds between posts (default 3 min)
     randomize_order: bool = True
     text_variations: List[str] = None  # Optional variations
+    ai_rewrite: bool = False  # Use AI to rewrite message for each chat
     last_run: Optional[str] = None
     
     def __post_init__(self):
         if self.chat_ids is None:
             self.chat_ids = []
+            
+
         if self.chat_names is None:
             self.chat_names = {}
         if self.text_variations is None:
@@ -76,7 +80,8 @@ class AutopostService:
         schedule_time: Optional[str] = None,
         interval_seconds: Optional[int] = None,
         randomize_order: Optional[bool] = None,
-        text_variations: Optional[List[str]] = None
+        text_variations: Optional[List[str]] = None,
+        ai_rewrite: Optional[bool] = None
     ) -> Dict[str, Any]:
         """Update config"""
         if enabled is not None:
@@ -90,11 +95,13 @@ class AutopostService:
         if schedule_time is not None:
             self.config.schedule_time = schedule_time
         if interval_seconds is not None:
-            self.config.interval_seconds = max(30, interval_seconds)  # Min 30 sec
+            self.config.interval_seconds = max(60, interval_seconds)  # Min 60 sec to prevent bans
         if randomize_order is not None:
             self.config.randomize_order = randomize_order
         if text_variations is not None:
             self.config.text_variations = text_variations
+        if ai_rewrite is not None:
+            self.config.ai_rewrite = ai_rewrite
             
         self._save_config()
         return self.get_config()
@@ -145,6 +152,13 @@ class AutopostService:
             chat_name = self.config.chat_names.get(chat_id, str(chat_id))
             message = self.get_message_for_chat(chat_id)
             
+            # AI Paraphrasing (Silver Bullet)
+            if self.config.ai_rewrite:
+                try:
+                    message = paraphrase_message(message)
+                except Exception as e:
+                    print(f"AI Paraphrase failed, using original: {e}")
+            
             log_entry = {
                 "chat_id": chat_id,
                 "chat_name": chat_name,
@@ -173,7 +187,10 @@ class AutopostService:
             
             # Wait before next chat (except for last one)
             if i < len(chat_ids) - 1:
-                await asyncio.sleep(self.config.interval_seconds)
+                # Add +/- 10s jitter for natural behavior
+                jitter = random.randint(-10, 10)
+                wait_time = max(60, self.config.interval_seconds + jitter)
+                await asyncio.sleep(wait_time)
         
         self._is_running = False
         self.config.last_run = datetime.now().isoformat()

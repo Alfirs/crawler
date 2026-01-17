@@ -13,6 +13,12 @@ interface AppState {
     currentWorkspace: Workspace | null
     setCurrentWorkspace: (workspace: Workspace | null) => void
 
+    // User professions
+    userProfessions: string[]
+    setUserProfessions: (professions: string[]) => void
+    onboardingCompleted: boolean
+    setOnboardingCompleted: (completed: boolean) => void
+
     // Loading states
     isLoading: boolean
     setIsLoading: (loading: boolean) => void
@@ -35,6 +41,11 @@ interface AppState {
 export const useStore = create<AppState>((set) => ({
     currentWorkspace: null,
     setCurrentWorkspace: (workspace) => set({ currentWorkspace: workspace }),
+
+    userProfessions: [],
+    setUserProfessions: (professions) => set({ userProfessions: professions }),
+    onboardingCompleted: true, // Default true, will be set false on first check
+    setOnboardingCompleted: (completed) => set({ onboardingCompleted: completed }),
 
     isLoading: false,
     setIsLoading: (loading) => set({ isLoading: loading }),
@@ -60,3 +71,4 @@ export const useStore = create<AppState>((set) => ({
     gamificationData: null,
     setGamificationData: (data) => set({ gamificationData: data }),
 }))
+

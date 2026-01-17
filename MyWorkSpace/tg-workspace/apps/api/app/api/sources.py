@@ -4,16 +4,18 @@ Sources API routes - Telegram export management
 import os
 import shutil
 import aiofiles
-from typing import List, Optional
+import traceback
+from typing import List, Optional, Dict, Any
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from app.db.database import get_db
-from app.db.models import Source, Message, Lead, Workspace
+from app.db.database import get_db, SessionLocal
+from app.db.models import Source, Message, Lead, Workspace, Job
 from app.services.parser import TelegramParser, filter_relevant_messages
 from app.services.classifier import classify_message, calculate_recency_score, calculate_total_score, quick_filter
+from app.services.telegram_client import get_telegram_service
 
 router = APIRouter()
 
@@ -37,10 +39,434 @@ class SourceResponse(BaseModel):
         from_attributes = True
 
 
+class JobStartResponse(BaseModel):
+    job_id: int
+    status: str
+    message: str
+
+
 class SourceLinkCreate(BaseModel):
     workspace_id: int
     title: str
     link: str
+
+
+class ImportRequest(BaseModel):
+    workspace_id: int
+    link: str # username or invite link
+    limit: int = 100
+    since_date: Optional[str] = None # ISO format string
+    auto_classify: bool = True # Auto-run classification after import
+
+
+async def process_import_job(job_id: int, source_id: int, link: str, limit: int, since_date_str: Optional[str], auto_classify: bool = True):
+    """Background task to import history from Telegram directly"""
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        source = db.query(Source).filter(Source.id == source_id).first()
+        
+        if not job or not source:
+            return
+
+        job.status = "processing"
+        job.progress = 5
+        job.message = "Подключение к Telegram..."
+        db.commit()
+
+        telegram = await get_telegram_service()
+        if not telegram.is_authorized:
+             job.status = "failed"
+             job.error = "Telegram client not authorized"
+             db.commit()
+             db.delete(source)
+             db.commit()
+             return
+
+        # Parse date if provided
+        offset_date = None
+        if since_date_str:
+            try:
+                offset_date = datetime.fromisoformat(since_date_str.replace('Z', '+00:00'))
+            except:
+                pass
+        
+        job.message = f"Получение истории (до {limit} сообщений)..."
+        db.commit()
+
+        # Execute Import
+        try:
+            result = await telegram.import_history(link, limit=limit, offset_date=offset_date)
+            
+            if result.get("status") == "error":
+                raise Exception(result.get("message"))
+            
+            messages_data = result.get("messages", [])
+            total_msgs = len(messages_data)
+            
+            # Update source title if found
+            if result.get("chat_title"):
+                source.title = result.get("chat_title")
+                
+            job.total_items = total_msgs
+            db.commit()
+            
+            # Save messages
+            batch_size = 50
+            processed = 0
+            
+            for i in range(0, total_msgs, batch_size):
+                batch = messages_data[i:i+batch_size]
+                
+                for msg_data in batch:
+                    # Check if exists (optional, simply generic add for now)
+                    message = Message(
+                        source_id=source.id,
+                        msg_id=str(msg_data.get('id')), 
+                        date=datetime.fromisoformat(msg_data.get('date')),
+                        author=msg_data.get('sender_name'),
+                        author_id=str(msg_data.get('sender_id')) if msg_data.get('sender_id') else None,
+                        text=msg_data.get('text'),
+                        raw_json=msg_data.get('raw_json'),
+                    )
+                    db.add(message)
+                
+                processed += len(batch)
+                job.processed_items = processed
+                job.progress = 10 + int((processed / total_msgs) * 90) if total_msgs > 0 else 100
+                db.commit()
+                
+            source.parsed_at = datetime.utcnow()
+            source.message_count = total_msgs
+            source.type = "telegram_import" # specialized type
+            
+            job.status = "completed"
+            job.progress = 100
+            job.result = {"source_id": source.id, "message_count": total_msgs, "auto_classify": auto_classify}
+            
+            db.commit()
+            
+            # Auto-classify if requested
+            if auto_classify and total_msgs > 0:
+                job.message = "Импорт завершен. Запуск классификации..."
+                db.commit()
+                # Trigger classification inline (using same db session)
+                process_classify_job_inline(source.id, db)
+
+        except Exception as e:
+            job.status = "failed"
+            job.error = f"Import error: {str(e)}"
+            db.delete(source) # Cleanup empty source
+            db.commit()
+            
+    except Exception as e:
+        print(f"Import Job Failed: {e}")
+        try:
+            job.status = "failed"
+            job.error = str(e)
+            db.commit()
+        except:
+            pass
+    finally:
+        db.close()
+
+
+def process_upload_job(job_id: int, file_path: str, source_id: int):
+    """Background task to parse uploaded file"""
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        source = db.query(Source).filter(Source.id == source_id).first()
+        
+        if not job or not source:
+            return
+
+        job.status = "processing"
+        job.progress = 10
+        db.commit()
+
+        # Parse file
+        try:
+            result = TelegramParser.parse(file_path)
+            messages_data = result['messages']
+            total_msgs = len(messages_data)
+            
+            job.total_items = total_msgs
+            db.commit()
+
+            # Save messages in batches
+            batch_size = 100
+            processed = 0
+            
+            for i in range(0, total_msgs, batch_size):
+                batch = messages_data[i:i+batch_size]
+                
+                for msg_data in batch:
+                    message = Message(
+                        source_id=source.id,
+                        msg_id=msg_data.get('msg_id'),
+                        date=msg_data.get('date'),
+                        author=msg_data.get('author'),
+                        author_id=msg_data.get('author_id'),
+                        text=msg_data.get('text'),
+                        raw_json=msg_data.get('raw_json'),
+                    )
+                    db.add(message)
+                
+                processed += len(batch)
+                job.processed_items = processed
+                job.progress = 10 + int((processed / total_msgs) * 90)
+                db.commit()
+            
+            source.parsed_at = datetime.utcnow()
+            source.message_count = total_msgs
+            
+            job.status = "completed"
+            job.progress = 100
+            job.result = {"source_id": source.id, "message_count": total_msgs}
+            
+            db.commit()
+            
+        except Exception as e:
+            job.status = "failed"
+            job.error = f"Parse error: {str(e)}"
+            # Cleanup source on failure
+            db.delete(source)
+            db.commit()
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                
+    except Exception as e:
+        print(f"Job failed: {e}")
+        # Last resort error update
+        try:
+            job.status = "failed"
+            job.error = str(e)
+            db.commit()
+        except:
+            pass
+    finally:
+        db.close()
+
+
+def process_classify_job_inline(source_id: int, db: Session):
+    """Inline classification (uses existing db session)"""
+    # Get all message IDs for this source
+    message_ids = db.query(Message.id).filter(Message.source_id == source_id).all()
+    message_ids = [m[0] for m in message_ids]
+    
+    if not message_ids:
+        return
+    
+    # Get existing lead message_ids
+    existing_leads = db.query(Lead.message_id).filter(Lead.message_id.in_(message_ids)).all()
+    existing_ids = set(l[0] for l in existing_leads)
+    
+    # Determine messages to process
+    to_process_ids = [mid for mid in message_ids if mid not in existing_ids]
+    
+    if not to_process_ids:
+        return
+    
+    # Get workspace_id from source
+    source = db.query(Source).filter(Source.id == source_id).first()
+    if not source:
+        return
+    workspace_id = source.workspace_id
+    
+    leads_created = 0
+    
+    # Process in chunks
+    chunk_size = 50
+    
+    for i in range(0, len(to_process_ids), chunk_size):
+        chunk_ids = to_process_ids[i:i+chunk_size]
+        messages = db.query(Message).filter(Message.id.in_(chunk_ids)).all()
+        
+        for message in messages:
+            text = message.text or ""
+            
+            # Skip very short messages
+            if len(text) < 15:
+                continue
+            
+            # Quick filter first
+            is_potential, quick_type = quick_filter(text)
+            
+            if not is_potential:
+                continue
+            
+            # Full classification
+            classification = classify_message(text, message.author or "")
+            
+            if classification['type'] in ['TASK', 'VACANCY']:
+                recency_score = calculate_recency_score(message.date)
+                total_score = calculate_total_score(
+                    classification['fit_score'],
+                    classification['money_score'],
+                    recency_score,
+                    classification['confidence']
+                )
+                
+                lead = Lead(
+                    workspace_id=workspace_id,
+                    message_id=message.id,
+                    type=classification['type'],
+                    category=classification.get('category', 'Other'),
+                    target_professions=classification.get('target_professions'),
+                    fit_score=classification['fit_score'],
+                    money_score=classification['money_score'],
+                    recency_score=recency_score,
+                    confidence=classification['confidence'],
+                    total_score=total_score,
+                    status="NEW",
+                )
+                
+                db.add(lead)
+                leads_created += 1
+        
+        db.commit()
+    
+    print(f"Auto-classified source {source_id}: {leads_created} leads created")
+
+
+def process_classify_job(job_id: int, source_id: int, use_llm: bool):
+    """Background task to classify messages"""
+    print(f"DEBUG: Starting classify job {job_id} for source {source_id}")
+    db = SessionLocal()
+    try:
+        job = db.query(Job).filter(Job.id == job_id).first()
+        
+        if not job:
+            print(f"DEBUG: Job {job_id} not found")
+            return
+
+        job.status = "processing"
+        job.progress = 5
+        job.message = "Загрузка сообщений..."
+        db.commit()
+        print(f"DEBUG: Job {job_id} status set to processing")
+        
+        # Get all message IDs for this source
+        message_ids = db.query(Message.id).filter(Message.source_id == source_id).all()
+        message_ids = [m[0] for m in message_ids]
+        
+        # Get existing lead message_ids
+        existing_leads = db.query(Lead.message_id).filter(Lead.message_id.in_(message_ids)).all()
+        existing_ids = set(l[0] for l in existing_leads)
+        
+        # Determine messages to process
+        to_process_ids = [mid for mid in message_ids if mid not in existing_ids]
+        
+        job.total_items = len(to_process_ids)
+        db.commit()
+        
+        if len(to_process_ids) == 0:
+            job.status = "completed"
+            job.progress = 100
+            job.result = {"classified": 0, "leads_created": 0}
+            db.commit()
+            return
+
+        processed_count = 0
+        leads_created = 0
+        
+        # Process in chunks
+        chunk_size = 50
+        
+        for i in range(0, len(to_process_ids), chunk_size):
+            chunk_ids = to_process_ids[i:i+chunk_size]
+            messages = db.query(Message).filter(Message.id.in_(chunk_ids)).all()
+            
+            for message in messages:
+                text = message.text or ""
+                
+                # Classification Logic
+                is_potential, quick_type = quick_filter(text)
+                
+                classification = None
+                if not is_potential:
+                    # Skip or mark as chatter? We just skip creating lead
+                    pass
+                else:
+                    if use_llm:
+                        try:
+                            classification = classify_message(text, message.author or "")
+                        except:
+                            # Fallback
+                            classification = {
+                                "type": quick_type,
+                                "category": "Other",
+                                "fit_score": 0.5,
+                                "money_score": 0.5,
+                                "confidence": 0.3,
+                            }
+                    else:
+                        classification = {
+                            "type": quick_type,
+                            "category": "Other",
+                            "fit_score": 0.5,
+                            "money_score": 0.5,
+                            "confidence": 0.5,
+                        }
+                
+                if classification and classification['type'] in ['TASK', 'VACANCY']:
+                    recency_score = calculate_recency_score(message.date)
+                    total_score = calculate_total_score(
+                        classification['fit_score'],
+                        classification['money_score'],
+                        recency_score,
+                        classification['confidence']
+                    )
+                    
+                    lead = Lead(
+                        workspace_id=source_id, # Actually need to lookup workspace_id from source, but simplified
+                        message_id=message.id,
+                        type=classification['type'],
+                        category=classification.get('category', 'Other'),
+                        target_professions=classification.get('target_professions'),
+                        fit_score=classification['fit_score'],
+                        money_score=classification['money_score'],
+                        recency_score=recency_score,
+                        confidence=classification['confidence'],
+                        total_score=total_score,
+                        status="NEW",
+                    )
+                    
+                    # Need to get workspace_id
+                    # This is slightly inefficient, better to fetch source once
+                    src = db.query(Source).filter(Source.id == source_id).first()
+                    lead.workspace_id = src.workspace_id
+                    
+                    db.add(lead)
+                    leads_created += 1
+                
+                processed_count += 1
+            
+            # Update progress
+            db.commit()
+            job.processed_items = processed_count
+            job.progress = int((processed_count / job.total_items) * 100)
+            db.commit()
+
+        job.status = "completed"
+        job.progress = 100
+        job.result = {"classified": processed_count, "leads_created": leads_created}
+        db.commit()
+
+    except Exception as e:
+        print(f"DEBUG: Classification job {job_id} failed: {e}")
+        traceback.print_exc()
+        try:
+            job.status = "failed"
+            job.error = str(e)
+            job.result = {"traceback": traceback.format_exc()}
+            db.commit()
+        except:
+            pass
+    finally:
+        db.close()
+        print(f"DEBUG: Classification job {job_id} finished")
 
 
 @router.get("/workspace/{workspace_id}", response_model=List[SourceResponse])
@@ -50,29 +476,61 @@ def list_sources(workspace_id: int, db: Session = Depends(get_db)):
     return sources
 
 
-@router.post("/link", response_model=SourceResponse, status_code=status.HTTP_201_CREATED)
-def add_link_source(data: SourceLinkCreate, db: Session = Depends(get_db)):
-    """Add a Telegram link as source (for reference only, no parsing)"""
-    # Verify workspace exists
+@router.post("/link", response_model=JobStartResponse, status_code=status.HTTP_201_CREATED)
+async def import_from_link(
+    data: ImportRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """Import messages from a Telegram link (username or invite)"""
     workspace = db.query(Workspace).filter(Workspace.id == data.workspace_id).first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    
+
+    # Create source placeholder
     source = Source(
         workspace_id=data.workspace_id,
-        type="link",
-        title=data.title,
+        type="telegram_import_pending",
+        title=f"Import: {data.link}",
         link=data.link,
+        message_count=0
     )
     db.add(source)
     db.commit()
     db.refresh(source)
     
-    return source
+    # Create Job
+    job = Job(
+        type="import_history",
+        status="pending",
+        total_items=data.limit,
+        processed_items=0
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    
+    # Start background task
+    background_tasks.add_task(
+        process_import_job, 
+        job.id, 
+        source.id, 
+        data.link, 
+        data.limit, 
+        data.since_date,
+        data.auto_classify
+    )
+    
+    return {
+        "job_id": job.id,
+        "status": "pending",
+        "message": "Import job started"
+    }
 
 
-@router.post("/upload", response_model=SourceResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/upload", response_model=JobStartResponse, status_code=status.HTTP_201_CREATED)
 async def upload_telegram_export(
+    background_tasks: BackgroundTasks,
     workspace_id: int = Form(...),
     title: str = Form(...),
     file: UploadFile = File(...),
@@ -98,145 +556,74 @@ async def upload_telegram_export(
         content = await file.read()
         await f.write(content)
     
-    # Determine file type
     file_type = "telegram_json" if filename.endswith('.json') else "telegram_html"
     
-    # Create source record
+    # Create source record (empty initially)
     source = Source(
         workspace_id=workspace_id,
         type=file_type,
         title=title,
         file_path=file_path,
+        message_count=0
     )
     db.add(source)
     db.commit()
     db.refresh(source)
     
-    # Parse the file
-    try:
-        result = TelegramParser.parse(file_path)
-        messages = result['messages']
-        
-        # Save messages to database
-        for msg_data in messages:
-            message = Message(
-                source_id=source.id,
-                msg_id=msg_data.get('msg_id'),
-                date=msg_data.get('date'),
-                author=msg_data.get('author'),
-                author_id=msg_data.get('author_id'),
-                text=msg_data.get('text'),
-                raw_json=msg_data.get('raw_json'),
-            )
-            db.add(message)
-        
-        source.parsed_at = datetime.utcnow()
-        source.message_count = len(messages)
-        db.commit()
-        
-    except Exception as e:
-        # Rollback and delete source if parsing fails
-        db.delete(source)
-        db.commit()
-        os.remove(file_path)
-        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+    # Create Job
+    job = Job(
+        type="upload_source",
+        status="pending",
+        total_items=0,
+        processed_items=0
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
     
-    db.refresh(source)
-    return source
+    # Start background task
+    background_tasks.add_task(process_upload_job, job.id, file_path, source.id)
+    
+    return {
+        "job_id": job.id,
+        "status": "pending",
+        "message": "File uploaded, parsing started"
+    }
 
 
-@router.post("/{source_id}/classify")
+@router.post("/{source_id}/classify", response_model=JobStartResponse)
 def classify_source_messages(
     source_id: int, 
+    background_tasks: BackgroundTasks,
     use_llm: bool = True,
     db: Session = Depends(get_db)
 ):
     """Classify all messages from a source and create leads"""
+    print(f"DEBUG: classify_source_messages called for source {source_id}")
     source = db.query(Source).filter(Source.id == source_id).first()
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
     
-    # Get unclassified messages (those without leads)
-    messages = db.query(Message).filter(
-        Message.source_id == source_id
-    ).all()
-    
-    classified_count = 0
-    leads_created = 0
-    
-    for message in messages:
-        # Check if lead already exists
-        existing_lead = db.query(Lead).filter(Lead.message_id == message.id).first()
-        if existing_lead:
-            continue
-        
-        text = message.text or ""
-        
-        # Quick filter first
-        is_potential, quick_type = quick_filter(text)
-        
-        if not is_potential:
-            # Skip non-potential messages
-            continue
-        
-        # Classify with LLM if enabled
-        if use_llm:
-            try:
-                classification = classify_message(text, message.author or "")
-            except Exception as e:
-                # Fallback to quick classification
-                classification = {
-                    "type": quick_type,
-                    "category": "Other",
-                    "fit_score": 0.5,
-                    "money_score": 0.5,
-                    "confidence": 0.3,
-                }
-        else:
-            classification = {
-                "type": quick_type,
-                "category": "Other",
-                "fit_score": 0.5,
-                "money_score": 0.5,
-                "confidence": 0.5,
-            }
-        
-        # Calculate recency
-        recency_score = calculate_recency_score(message.date)
-        
-        # Calculate total score
-        total_score = calculate_total_score(
-            classification['fit_score'],
-            classification['money_score'],
-            recency_score,
-            classification['confidence']
-        )
-        
-        # Only create leads for TASK or VACANCY types
-        if classification['type'] in ['TASK', 'VACANCY']:
-            lead = Lead(
-                workspace_id=source.workspace_id,
-                message_id=message.id,
-                type=classification['type'],
-                category=classification.get('category', 'Other'),
-                fit_score=classification['fit_score'],
-                money_score=classification['money_score'],
-                recency_score=recency_score,
-                confidence=classification['confidence'],
-                total_score=total_score,
-                status="NEW",
-            )
-            db.add(lead)
-            leads_created += 1
-        
-        classified_count += 1
-    
+    # Create Job
+    job = Job(
+        type="classify_source",
+        status="pending",
+        total_items=0,
+        processed_items=0
+    )
+    db.add(job)
     db.commit()
+    db.refresh(job)
+    
+    # Start background task using threading (BackgroundTasks was not executing)
+    import threading
+    thread = threading.Thread(target=process_classify_job, args=(job.id, source_id, use_llm))
+    thread.start()
     
     return {
-        "source_id": source_id,
-        "messages_processed": classified_count,
-        "leads_created": leads_created,
+        "job_id": job.id,
+        "status": "pending",
+        "message": "Classification started"
     }
 
 

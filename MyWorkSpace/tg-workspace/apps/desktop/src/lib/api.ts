@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_BASE_URL = 'http://127.0.0.1:8765/api'
+const API_BASE_URL = 'http://localhost:8765/api'
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
@@ -31,6 +31,15 @@ export const sourcesApi = {
         })
     },
     classify: (sourceId: number) => api.post(`/sources/${sourceId}/classify`),
+    importLink: (workspaceId: number, link: string, limit: number = 100, sinceDate?: string, autoClassify: boolean = true) => {
+        return api.post('/sources/link', {
+            workspace_id: workspaceId,
+            link,
+            limit,
+            since_date: sinceDate,
+            auto_classify: autoClassify
+        })
+    },
     delete: (id: number) => api.delete(`/sources/${id}`),
 }
 
@@ -83,6 +92,10 @@ export const settingsApi = {
     update: (key: string, value: string) => api.put(`/settings/${key}`, { value }),
     getQuota: () => api.get('/settings/quota/current'),
     getRisk: () => api.get('/settings/risk/assessment'),
+    // Professions
+    getProfessionsList: () => api.get('/settings/professions/list'),
+    getUserProfessions: () => api.get('/settings/professions/user'),
+    setUserProfessions: (professions: string[]) => api.put('/settings/professions/user', { professions }),
 }
 
 // Gamification
@@ -113,6 +126,12 @@ export const telegramApi = {
         api.get('/telegram/dialogs', { params: { limit } }),
     getMessages: (chatId: number, limit?: number, offsetId?: number) =>
         api.get(`/telegram/messages/${chatId}`, { params: { limit, offset_id: offsetId } }),
+    sendMessage: (data: { chat_id: number; text: string; reply_to?: number }) =>
+        api.post('/telegram/send', data),
+
+    // QR Auth
+    getQrCode: () => api.get('/telegram/auth/qr'),
+    checkQrAuth: () => api.get('/telegram/auth/qr/check'),
     getEntity: (identifier: string) =>
         api.get(`/telegram/entity/${identifier}`),
 
@@ -128,6 +147,12 @@ export const llmApi = {
     coach: (leadId: number) => api.post('/llm/coach', { lead_id: leadId }),
     objection: (leadId: number, objectionText: string) =>
         api.post('/llm/objection', { lead_id: leadId, objection_text: objectionText }),
+}
+
+// Jobs
+export const jobsApi = {
+    get: (id: number) => api.get(`/jobs/${id}`),
+    list: () => api.get('/jobs/'),
 }
 
 export default api

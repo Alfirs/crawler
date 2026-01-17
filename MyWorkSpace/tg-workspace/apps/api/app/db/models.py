@@ -48,6 +48,25 @@ class GoalMode(str, enum.Enum):
     HARD = "hard"
 
 
+class Profession(str, enum.Enum):
+    """User professions for lead filtering - based on MARI channel analysis"""
+    SMM = "smm"
+    DESIGNER = "designer"
+    TARGETOLOG = "targetolog"
+    REELSMAKER = "reelsmaker"
+    TECHSPEC = "techspec"
+    COPYWRITER = "copywriter"
+    MARKETER = "marketer"
+    AD_BUYER = "ad_buyer"
+    ASSISTANT = "assistant"
+    PARSING = "parsing"
+    LAWYER = "lawyer"
+    AVITOLOG = "avitolog"
+    PRODUCER = "producer"
+    OTHER = "other"
+
+
+
 # ============== CORE MODELS ==============
 
 class Workspace(Base):
@@ -107,6 +126,7 @@ class Lead(Base):
     # Classification
     type = Column(String(50), default=LeadType.CHATTER.value)
     category = Column(String(100), default=LeadCategory.OTHER.value)
+    target_professions = Column(JSON, nullable=True)  # ["smm", "designer"] - for profession filtering
     
     # Scoring (0.0 - 1.0)
     fit_score = Column(Float, default=0.0)
@@ -302,3 +322,24 @@ class MonthlyGoal(Base):
     wins_done = Column(Integer, default=0)
     
     is_completed = Column(Boolean, default=False)
+
+
+# ============== SYSTEM MODELS ==============
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(String(50), nullable=False)  # 'upload_source', 'classify_source'
+    status = Column(String(50), default="pending")  # 'pending', 'processing', 'completed', 'failed'
+    
+    progress = Column(Integer, default=0)
+    total_items = Column(Integer, default=0)
+    processed_items = Column(Integer, default=0)
+    
+    result = Column(JSON, nullable=True)
+    error = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

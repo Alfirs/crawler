@@ -18,6 +18,7 @@ interface AutopostConfig {
     text_variations: string[]
     last_run: string | null
     next_run: string | null
+    ai_rewrite: boolean
 }
 
 interface Dialog {
@@ -40,6 +41,7 @@ export default function Autopost() {
     const [scheduleTime, setScheduleTime] = useState('10:00')
     const [intervalSeconds, setIntervalSeconds] = useState(60)
     const [randomizeOrder, setRandomizeOrder] = useState(true)
+    const [aiRewrite, setAiRewrite] = useState(false)
 
     // Chat selection
     const [dialogs, setDialogs] = useState<Dialog[]>([])
@@ -65,6 +67,7 @@ export default function Autopost() {
             setScheduleTime(res.data.schedule_time || '10:00')
             setIntervalSeconds(res.data.interval_seconds || 60)
             setRandomizeOrder(res.data.randomize_order ?? true)
+            setAiRewrite(res.data.ai_rewrite ?? false)
         } catch (err) {
             console.error('Failed to load config:', err)
         } finally {
@@ -110,7 +113,8 @@ export default function Autopost() {
                 message_text: messageText,
                 schedule_time: scheduleTime,
                 interval_seconds: intervalSeconds,
-                randomize_order: randomizeOrder
+                randomize_order: randomizeOrder,
+                ai_rewrite: aiRewrite
             })
             addNotification('success', 'Настройки сохранены')
             loadConfig()
@@ -323,6 +327,24 @@ export default function Autopost() {
                             <label htmlFor="randomize" className="text-gray-700">
                                 Случайный порядок чатов
                             </label>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-purple-50 p-3 rounded-xl border border-purple-100">
+                            <input
+                                type="checkbox"
+                                id="ai_rewrite"
+                                checked={aiRewrite}
+                                onChange={(e) => setAiRewrite(e.target.checked)}
+                                className="w-5 h-5 rounded text-purple-600 focus:ring-purple-500"
+                            />
+                            <div>
+                                <label htmlFor="ai_rewrite" className="text-gray-800 font-medium flex items-center gap-2">
+                                    ✨ AI Рерайт текста (Silver Bullet)
+                                </label>
+                                <p className="text-xs text-gray-500">
+                                    Каждое сообщение будет уникальным. Защита от спам-фильтров 99%.
+                                </p>
+                            </div>
                         </div>
 
                         {config?.chat_ids.length ? (

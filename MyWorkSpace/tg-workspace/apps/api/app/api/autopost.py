@@ -20,6 +20,7 @@ class UpdateConfigRequest(BaseModel):
     interval_seconds: Optional[int] = None
     randomize_order: Optional[bool] = None
     text_variations: Optional[List[str]] = None
+    ai_rewrite: Optional[bool] = None
 
 
 class AddChatRequest(BaseModel):
@@ -54,7 +55,8 @@ async def update_config(data: UpdateConfigRequest):
         schedule_time=data.schedule_time,
         interval_seconds=data.interval_seconds,
         randomize_order=data.randomize_order,
-        text_variations=data.text_variations
+        text_variations=data.text_variations,
+        ai_rewrite=data.ai_rewrite
     )
 
 

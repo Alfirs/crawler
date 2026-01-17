@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import {
     Smartphone, Key, Check, Loader, LogOut, MessageCircle,
-    AlertTriangle, RefreshCw, Download
+    AlertTriangle, RefreshCw
 } from 'lucide-react'
+import QRCode from 'react-qr-code'
 import { telegramApi } from '../lib/api'
 import { useStore } from '../store/useStore'
 
-type AuthStep = 'init' | 'phone' | 'code' | '2fa' | 'success'
+type AuthStep = 'init' | 'phone' | 'qr' | 'code' | '2fa' | 'success'
 
 export default function TelegramConnect() {
     const { addNotification } = useStore()
@@ -20,6 +21,10 @@ export default function TelegramConnect() {
     const [phone, setPhone] = useState('')
     const [code, setCode] = useState('')
     const [password, setPassword] = useState('')
+
+    // QR State
+    const [qrUrl, setQrUrl] = useState('')
+    const [qrStatus, setQrStatus] = useState('')
 
     useEffect(() => {
         checkAuthStatus()
@@ -38,6 +43,35 @@ export default function TelegramConnect() {
         }
     }
 
+    // QR Polling
+    useEffect(() => {
+        let interval: NodeJS.Timeout
+
+        if (step === 'qr' && qrUrl) {
+            interval = setInterval(async () => {
+                try {
+                    const res = await telegramApi.checkQrAuth()
+                    if (res.data.status === 'authorized') {
+                        setAuthStatus(res.data)
+                        setStep('success')
+                        addNotification('success', `Успешный вход: ${res.data.user?.username}`)
+                    } else if (res.data.status === '2fa_required') {
+                        setStep('2fa')
+                        addNotification('warning', 'Требуется пароль облачной защиты')
+                    } else if (res.data.status === 'expired') {
+                        setQrStatus('expired')
+                        addNotification('warning', 'QR код истек, генерируем новый...')
+                        handleQrInit()
+                    }
+                } catch (err) {
+                    // Ignore polling errors
+                }
+            }, 2000)
+        }
+
+        return () => clearInterval(interval)
+    }, [step, qrUrl])
+
     const handleInit = async () => {
         if (!apiId || !apiHash) {
             addNotification('error', 'Введите API ID и API Hash')
@@ -55,6 +89,25 @@ export default function TelegramConnect() {
             }
         } catch (err: any) {
             addNotification('error', err.response?.data?.detail || 'Ошибка инициализации')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleQrInit = async () => {
+        setLoading(true)
+        setStep('qr')
+        setQrStatus('loading')
+        try {
+            const res = await telegramApi.getQrCode()
+            if (res.data.status === 'qr_generated') {
+                setQrUrl(res.data.url)
+                setQrStatus('ready')
+            } else {
+                addNotification('error', 'Ошибка генерации QR')
+            }
+        } catch (err) {
+            addNotification('error', 'Ошибка запроса QR')
         } finally {
             setLoading(false)
         }
@@ -202,6 +255,24 @@ export default function TelegramConnect() {
                 </div>
             )}
 
+            {/* Step: Auth Method Selection */}
+            {(step === 'phone' || step === 'qr') && (
+                <div className="flex bg-gray-100 p-1 rounded-lg mb-4">
+                    <button
+                        onClick={() => setStep('phone')}
+                        className={`flex-1 py-1.5 text-sm rounded-md transition-all ${step === 'phone' ? 'bg-white shadow text-blue-600 font-medium' : 'text-gray-500'}`}
+                    >
+                        По номеру
+                    </button>
+                    <button
+                        onClick={handleQrInit}
+                        className={`flex-1 py-1.5 text-sm rounded-md transition-all ${step === 'qr' ? 'bg-white shadow text-blue-600 font-medium' : 'text-gray-500'}`}
+                    >
+                        По QR коду
+                    </button>
+                </div>
+            )}
+
             {/* Step: Phone */}
             {step === 'phone' && (
                 <div className="space-y-4">
@@ -220,6 +291,29 @@ export default function TelegramConnect() {
                         {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Smartphone className="w-5 h-5" />}
                         Получить код
                     </button>
+                </div>
+            )}
+
+            {/* Step: QR */}
+            {step === 'qr' && (
+                <div className="space-y-4 text-center">
+                    <div className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col items-center justify-center min-h-[250px]">
+                        {loading ? (
+                            <Loader className="w-8 h-8 animate-spin text-blue-500" />
+                        ) : qrUrl ? (
+                            <div className="p-2 bg-white rounded-lg">
+                                <QRCode value={qrUrl} size={200} />
+                            </div>
+                        ) : (
+                            <div className="text-gray-400">Не удалось загрузить QR</div>
+                        )}
+
+                        <p className="mt-4 text-sm text-gray-500">
+                            1. Откройте Telegram на телефоне<br />
+                            2. Настройки → Устройства → Подключить<br />
+                            3. Отсканируйте код
+                        </p>
+                    </div>
                 </div>
             )}
 

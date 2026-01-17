@@ -65,6 +65,26 @@ async def start_auth(data: PhoneRequest):
     return result
 
 
+@router.get("/auth/qr")
+async def start_qr_auth():
+    """Start QR code authentication"""
+    if not telegram_service.client:
+        raise HTTPException(
+            status_code=400, 
+            detail="Client not initialized. Call /init first with any data."
+        )
+    
+    result = await telegram_service.start_qr_auth()
+    return result
+
+
+@router.get("/auth/qr/check")
+async def check_qr_auth():
+    """Check QR auth status"""
+    result = await telegram_service.check_qr_auth()
+    return result
+
+
 @router.post("/auth/code")
 async def verify_code(data: CodeRequest):
     """Verify phone code"""

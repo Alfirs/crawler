@@ -2,10 +2,10 @@ import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
     Plus, Upload, Trash2, FolderOpen, FileJson, Link,
-    ChevronRight, Loader, CheckCircle
+    ChevronRight, Loader, CheckCircle, Smartphone, AlertCircle, Download
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import { workspacesApi, sourcesApi } from '../lib/api'
+import { workspacesApi, sourcesApi, jobsApi } from '../lib/api'
 
 interface Workspace {
     id: number
@@ -24,6 +24,17 @@ interface Source {
     parsed_at?: string
 }
 
+interface Job {
+    id: number
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    progress: number
+    total_items: number
+    processed_items: number
+    message: string
+    error?: string
+    result?: any
+}
+
 export default function Workspaces() {
     const { currentWorkspace, setCurrentWorkspace, addNotification } = useStore()
     const navigate = useNavigate()
@@ -34,9 +45,16 @@ export default function Workspaces() {
     const [loading, setLoading] = useState(true)
     const [showCreateModal, setShowCreateModal] = useState(false)
     const [newWorkspaceName, setNewWorkspaceName] = useState('')
-    const [uploading, setUploading] = useState(false)
-    const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
-    const [classifying, setClassifying] = useState<number | null>(null)
+
+    // Import Modal State
+    const [showImportModal, setShowImportModal] = useState(false)
+    const [importLink, setImportLink] = useState('')
+    const [importLimit, setImportLimit] = useState(100)
+    const [importSinceDate, setImportSinceDate] = useState('')
+    const [autoClassify, setAutoClassify] = useState(true)
+
+    // activeJob replaces simple loading states
+    const [activeJob, setActiveJob] = useState<Job | null>(null)
 
     useEffect(() => {
         loadWorkspaces()
@@ -103,66 +121,147 @@ export default function Workspaces() {
         }
     }
 
+    // --- Job Polling Logic ---
+    const pollJob = async (jobId: number, onSuccess: (result: any) => void) => {
+        const interval = setInterval(async () => {
+            try {
+                const res = await jobsApi.get(jobId)
+                const job = res.data
+                setActiveJob(job)
+
+                if (job.status === 'completed') {
+                    clearInterval(interval)
+                    setActiveJob(null)
+                    onSuccess(job.result)
+                } else if (job.status === 'failed') {
+                    clearInterval(interval)
+                    setActiveJob(null)
+                    addNotification('error', `Ошибка: ${job.error || 'Неизвестная ошибка'}`)
+                }
+            } catch (err) {
+                console.error('Poll error:', err)
+                clearInterval(interval)
+                setActiveJob(null)
+                addNotification('error', 'Ошибка проверки статуса задачи')
+            }
+        }, 1000)
+    }
+
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
         if (!files || files.length === 0 || !currentWorkspace) return
 
-        const fileArray = Array.from(files)
-        setUploading(true)
-        setUploadProgress({ current: 0, total: fileArray.length })
+        const file = files[0] // Only support 1 file for now with job system for simplicity
 
-        let successCount = 0
-        let totalMessages = 0
-        const newSources: Source[] = []
+        try {
+            const title = file.name.replace(/\.(json|html?)$/i, '')
+            // API now starts a background job
+            const res = await sourcesApi.uploadFile(currentWorkspace.id, title, file)
+            const { job_id } = res.data
 
-        for (let i = 0; i < fileArray.length; i++) {
-            const file = fileArray[i]
-            setUploadProgress({ current: i + 1, total: fileArray.length })
+            // Start polling
+            setActiveJob({
+                id: job_id,
+                status: 'pending',
+                progress: 0,
+                total_items: 0,
+                processed_items: 0,
+                message: 'Загрузка файла...'
+            })
 
-            try {
-                const title = file.name.replace(/\.(json|html?)$/i, '')
-                const res = await sourcesApi.uploadFile(currentWorkspace.id, title, file)
-                newSources.push(res.data)
-                totalMessages += res.data.message_count
-                successCount++
-            } catch (err: any) {
-                addNotification('error', `Ошибка загрузки ${file.name}: ${err.response?.data?.detail || 'Неизвестная ошибка'}`)
-            }
+            pollJob(job_id, async (result) => {
+                addNotification('success', `Файл загружен: ${result.message_count} сообщений`)
+                loadSources()
+                // Refresh workspace stats
+                const wsRes = await workspacesApi.get(currentWorkspace.id)
+                setCurrentWorkspace(wsRes.data)
+            })
+
+        } catch (err: any) {
+            addNotification('error', `Ошибка запуска: ${err.response?.data?.detail || 'Неизвестная ошибка'}`)
         }
 
-        // Update sources list
-        setSources([...newSources, ...sources])
-
-        if (successCount > 0) {
-            addNotification('success', `Загружено ${successCount} файлов (${totalMessages} сообщений)`)
-
-            // Reload workspace to update counts
-            const wsRes = await workspacesApi.get(currentWorkspace.id)
-            setCurrentWorkspace(wsRes.data)
-        }
-
-        setUploading(false)
-        setUploadProgress({ current: 0, total: 0 })
         if (fileInputRef.current) {
             fileInputRef.current.value = ''
         }
     }
 
+    const handleLinkImport = async () => {
+        if (!currentWorkspace || !importLink.trim()) return
+
+        try {
+            setShowImportModal(false)
+
+            // Format date correctly if exists
+            let sinceDateIso = undefined
+            if (importSinceDate) {
+                sinceDateIso = new Date(importSinceDate).toISOString()
+            }
+
+            const res = await sourcesApi.importLink(
+                currentWorkspace.id,
+                importLink,
+                importLimit,
+                sinceDateIso,
+                autoClassify
+            )
+            const { job_id } = res.data
+
+            setActiveJob({
+                id: job_id,
+                status: 'pending',
+                progress: 0,
+                total_items: importLimit,
+                processed_items: 0,
+                message: 'Подключение к Telegram...'
+            })
+
+            pollJob(job_id, async (result) => {
+                const msg = autoClassify
+                    ? `Импорт завершен: ${result.message_count} сообщений. Лиды созданы.`
+                    : `Импорт завершен: ${result.message_count} сообщений`
+                addNotification('success', msg)
+                loadSources()
+                setImportLink('')
+                setImportLimit(100)
+                setImportSinceDate('')
+                // Refresh workspace stats
+                if (currentWorkspace) {
+                    const wsRes = await workspacesApi.get(currentWorkspace.id)
+                    setCurrentWorkspace(wsRes.data)
+                }
+            })
+
+        } catch (err: any) {
+            addNotification('error', `Ошибка запуска импорта: ${err.response?.data?.detail || 'Неизвестная ошибка'}`)
+        }
+    }
+
     const classifySource = async (sourceId: number) => {
-        setClassifying(sourceId)
         try {
             const res = await sourcesApi.classify(sourceId)
-            addNotification('success', `Найдено ${res.data.leads_created} лидов!`)
+            const { job_id } = res.data
 
-            // Reload workspace to update lead count
-            if (currentWorkspace) {
-                const wsRes = await workspacesApi.get(currentWorkspace.id)
-                setCurrentWorkspace(wsRes.data)
-            }
+            setActiveJob({
+                id: job_id,
+                status: 'pending',
+                progress: 0,
+                total_items: 0,
+                processed_items: 0,
+                message: 'Поиск лидов...'
+            })
+
+            pollJob(job_id, async (result) => {
+                addNotification('success', `Обработано: ${result.classified}, Найдено лидов: ${result.leads_created}`)
+                // Refresh stats
+                if (currentWorkspace) {
+                    const wsRes = await workspacesApi.get(currentWorkspace.id)
+                    setCurrentWorkspace(wsRes.data)
+                }
+            })
+
         } catch (err) {
-            addNotification('error', 'Ошибка классификации')
-        } finally {
-            setClassifying(null)
+            addNotification('error', 'Ошибка запуска классификации')
         }
     }
 
@@ -179,7 +278,7 @@ export default function Workspaces() {
     }
 
     return (
-        <div className="space-y-8 animate-fadeIn">
+        <div className="space-y-8 animate-fadeIn relative">
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -264,29 +363,28 @@ export default function Workspaces() {
                                     <p className="text-gray-500 text-sm">{currentWorkspace.description || 'Нет описания'}</p>
                                 </div>
                                 <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setShowImportModal(true)}
+                                        disabled={!!activeJob}
+                                        className="btn-ghost flex items-center gap-2 border border-primary-200 text-primary-700 hover:bg-primary-50"
+                                    >
+                                        <Link className="w-5 h-5" />
+                                        Импорт по ссылке
+                                    </button>
+
                                     <input
                                         ref={fileInputRef}
                                         type="file"
                                         accept=".json,.html"
-                                        multiple
                                         onChange={handleFileUpload}
                                         className="hidden"
                                     />
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
-                                        disabled={uploading}
+                                        disabled={!!activeJob}
                                         className="btn-primary flex items-center gap-2"
                                     >
-                                        {uploading ? (
-                                            <>
-                                                <Loader className="w-5 h-5 animate-spin" />
-                                                {uploadProgress.total > 1 && (
-                                                    <span>{uploadProgress.current}/{uploadProgress.total}</span>
-                                                )}
-                                            </>
-                                        ) : (
-                                            <Upload className="w-5 h-5" />
-                                        )}
+                                        <Upload className="w-5 h-5" />
                                         Загрузить экспорт
                                     </button>
                                 </div>
@@ -295,12 +393,7 @@ export default function Workspaces() {
                             {/* Upload Instructions */}
                             <div className="bg-blue-50 rounded-xl p-4 mb-6">
                                 <h3 className="font-medium text-blue-800 mb-2">📥 Как загрузить экспорт Telegram</h3>
-                                <ol className="text-sm text-blue-700 space-y-1">
-                                    <li>1. Откройте Telegram Desktop → Настройки → Продвинутые</li>
-                                    <li>2. Нажмите "Экспорт данных Telegram"</li>
-                                    <li>3. Выберите нужные чаты и формат JSON</li>
-                                    <li>4. Загрузите полученный result.json сюда</li>
-                                </ol>
+                                <p className="text-sm text-blue-700">Перетяните result.json или нажмите "Загрузить экспорт". Чтобы добавить историю чата по ссылке, нажмите "Импорт по ссылке".</p>
                             </div>
 
                             {/* Sources List */}
@@ -321,7 +414,7 @@ export default function Workspaces() {
                                                 <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center">
                                                     {source.type.includes('json') ? (
                                                         <FileJson className="w-5 h-5 text-gray-600" />
-                                                    ) : source.type === 'link' ? (
+                                                    ) : source.type === 'link' || source.type === 'telegram_import' ? (
                                                         <Link className="w-5 h-5 text-gray-600" />
                                                     ) : (
                                                         <FileJson className="w-5 h-5 text-gray-600" />
@@ -332,20 +425,17 @@ export default function Workspaces() {
                                                     <div className="text-sm text-gray-500">
                                                         {source.message_count} сообщений
                                                         {source.parsed_at && ' · Обработан'}
+                                                        {source.link && <span className="text-blue-500 ml-2 text-xs">{source.link}</span>}
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <button
                                                     onClick={() => classifySource(source.id)}
-                                                    disabled={classifying === source.id}
+                                                    disabled={!!activeJob}
                                                     className="btn-ghost flex items-center gap-1 text-primary-600"
                                                 >
-                                                    {classifying === source.id ? (
-                                                        <Loader className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        <CheckCircle className="w-4 h-4" />
-                                                    )}
+                                                    <CheckCircle className="w-4 h-4" />
                                                     Найти лиды
                                                 </button>
                                                 <button
@@ -380,7 +470,41 @@ export default function Workspaces() {
                 </div>
             </div>
 
-            {/* Create Modal */}
+            {/* Job Progress Modal */}
+            {activeJob && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl p-6 w-96 animate-fadeIn shadow-2xl">
+                        <div className="flex flex-col items-center text-center">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                                <Loader className="w-8 h-8 text-blue-500 animate-spin" />
+                            </div>
+                            <h2 className="text-xl font-bold text-gray-800 mb-2">
+                                {activeJob.type === 'upload_source' ? 'Загрузка файла' :
+                                    activeJob.type === 'import_history' ? 'Импорт истории' : 'Поиск лидов'}
+                            </h2>
+                            <p className="text-gray-500 mb-6">
+                                {activeJob.message || 'Обработка данных...'}
+                            </p>
+
+                            {/* Progress Bar */}
+                            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden mb-2">
+                                <div
+                                    className="h-full bg-blue-500 transition-all duration-300"
+                                    style={{ width: `${activeJob.progress}%` }}
+                                />
+                            </div>
+                            <div className="flex justify-between w-full text-sm text-gray-500">
+                                <span>{activeJob.progress}%</span>
+                                {activeJob.total_items > 0 && (
+                                    <span>{activeJob.processed_items} / {activeJob.total_items}</span>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Create Workspace Modal */}
             {showCreateModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-2xl p-6 w-96 animate-fadeIn">
@@ -406,6 +530,90 @@ export default function Workspaces() {
                                 className="flex-1 btn-primary"
                             >
                                 Создать
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Import Link Modal */}
+            {showImportModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl p-6 w-96 animate-fadeIn">
+                        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <Link className="w-6 h-6 text-primary-500" />
+                            Импорт из Telegram
+                        </h2>
+
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Ссылка или юзернейм</label>
+                                <input
+                                    type="text"
+                                    value={importLink}
+                                    onChange={(e) => setImportLink(e.target.value)}
+                                    placeholder="https://t.me/chat_name или @username"
+                                    className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Кол-во сообщений</label>
+                                    <input
+                                        type="number"
+                                        value={importLimit}
+                                        onChange={(e) => setImportLimit(Number(e.target.value))}
+                                        min="10"
+                                        max="5000"
+                                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Начиная с даты</label>
+                                    <input
+                                        type="date"
+                                        value={importSinceDate}
+                                        onChange={(e) => setImportSinceDate(e.target.value)}
+                                        className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700 flex items-start gap-2">
+                                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                                <p>Бот вступит в чат (если это возможно) и скачает историю сообщений для поиска лидов.</p>
+                            </div>
+
+                            {/* Auto-classify checkbox */}
+                            <label className="flex items-center gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={autoClassify}
+                                    onChange={(e) => setAutoClassify(e.target.checked)}
+                                    className="w-5 h-5 rounded border-gray-300 text-primary-500 focus:ring-primary-500"
+                                />
+                                <span className="text-sm text-gray-700">
+                                    <span className="font-medium">Авто-классификация</span>
+                                    <span className="text-gray-500 ml-1">(найти лиды сразу после импорта)</span>
+                                </span>
+                            </label>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowImportModal(false)}
+                                className="flex-1 btn-ghost"
+                            >
+                                Отмена
+                            </button>
+                            <button
+                                onClick={handleLinkImport}
+                                disabled={!importLink.trim()}
+                                className="flex-1 btn-primary"
+                            >
+                                Начать импорт
                             </button>
                         </div>
                     </div>
