@@ -17,6 +17,20 @@ async def lifespan(app: FastAPI):
     # Startup: Create database tables
     Base.metadata.create_all(bind=engine)
     
+    # Simple migration: Add target_professions column if missing
+    from sqlalchemy import text, inspect
+    try:
+        inspector = inspect(engine)
+        columns = [c['name'] for c in inspector.get_columns('leads')]
+        if 'target_professions' not in columns:
+            print("Migrating database: Adding target_professions column to leads table...")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE leads ADD COLUMN target_professions JSON"))
+                conn.commit()
+            print("Migration complete.")
+    except Exception as e:
+        print(f"Migration warning: {e}")
+    
     # Initialize Telegram service
     from app.services.telegram_client import telegram_service
     await telegram_service.startup()
