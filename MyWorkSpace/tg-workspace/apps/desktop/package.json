@@ -1,0 +1,72 @@
+{
+    "name": "tg-workspace-desktop",
+    "version": "1.0.0",
+    "description": "TG Workspace Desktop Application",
+    "type": "module",
+    "main": "electron/main.cjs",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build && electron-builder",
+        "preview": "vite preview",
+        "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+        "electron:build": "vite build && electron-builder"
+    },
+    "dependencies": {
+        "react": "^18.2.0",
+        "react-dom": "^18.2.0",
+        "react-router-dom": "^6.21.0",
+        "axios": "^1.6.2",
+        "lucide-react": "^0.303.0",
+        "clsx": "^2.0.0",
+        "tailwind-merge": "^2.2.0",
+        "zustand": "^4.4.7",
+        "date-fns": "^3.0.6",
+        "recharts": "^2.10.3"
+    },
+    "devDependencies": {
+        "@types/react": "^18.2.45",
+        "@types/react-dom": "^18.2.18",
+        "@vitejs/plugin-react": "^4.2.1",
+        "autoprefixer": "^10.4.16",
+        "concurrently": "^8.2.2",
+        "electron": "^28.1.0",
+        "electron-builder": "^24.9.1",
+        "postcss": "^8.4.32",
+        "tailwindcss": "^3.4.0",
+        "typescript": "^5.3.3",
+        "vite": "^5.0.10",
+        "wait-on": "^7.2.0"
+    },
+    "build": {
+        "appId": "com.tgworkspace.app",
+        "productName": "TG Workspace",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "dist/**/*",
+            "electron/**/*"
+        ],
+        "extraResources": [
+            {
+                "from": "../api",
+                "to": "api",
+                "filter": [
+                    "**/*",
+                    "!__pycache__/**",
+                    "!*.pyc"
+                ]
+            }
+        ],
+        "win": {
+            "target": "nsis",
+            "icon": "public/icon.svg"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true
+        }
+    }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "Example Chat Export",
+  "type": "group",
+  "id": 123456,
+  "messages": [
+    {
+      "id": 1,
+      "type": "service",
+      "date": "2026-01-14T09:00:00",
+      "text": "User joined the group"
+    },
+    {
+      "id": 2,
+      "type": "message",
+      "date": "2026-01-14T10:15:00",
+      "from": "Someone",
+      "text": "Ребят, нужен телеграм-бот: заявки + уведомления. Кто может и сколько стоит?"
+    },
+    {
+      "id": 3,
+      "type": "message",
+      "date": "2026-01-14T11:05:00",
+      "from": "Someone",
+      "text": [
+        "Нужна интеграция: ",
+        { "type": "bold", "text": "Google Sheets" },
+        " + оплата (ЮKassa). Бюджет 30к."
+      ]
+    },
+    {
+      "id": 4,
+      "type": "message",
+      "date": "2026-01-14T12:00:00",
+      "from": "Someone",
+      "text": "Напишите мне на test@example.com или +7 (999) 123-45-67, обсудим"
+    },
+    {
+      "id": 5,
+      "type": "message",
+      "date": "2026-01-14T13:20:00",
+      "from": "Someone",
+      "text": "Есть ли специалист по лендингам на Tilda? Срочно."
+    },
+    {
+      "id": 6,
+      "type": "message",
+      "date": "2026-01-14T14:10:00",
+      "from": "Someone",
+      "text": "Вот ссылка на профиль: https://t.me/some_username"
+    }
+  ]
+}
+

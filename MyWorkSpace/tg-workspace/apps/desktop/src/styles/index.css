@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1a1a2e;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  /* Enable GPU acceleration for smoother animations */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  /* GPU acceleration for all animations */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Custom scrollbar - thin and fast */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Glass effect - optimized */
+.glass {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.glass-dark {
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Card styles - GPU accelerated */
+.card {
+  @apply bg-white/95 rounded-2xl shadow-lg p-6;
+  will-change: transform;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+.card:hover {
+  transform: translateY(-2px) translateZ(0);
+  box-shadow: 0 16px 30px -8px rgba(0, 0, 0, 0.12);
+}
+
+/* Button styles - instant feedback */
+.btn-primary {
+  @apply bg-gradient-to-r from-primary-500 to-accent-500 text-white font-medium px-6 py-3 rounded-xl;
+  @apply shadow-md;
+  will-change: transform, opacity;
+  transition: all 0.1s ease-out;
+}
+
+.btn-primary:hover {
+  @apply from-primary-600 to-accent-600 shadow-lg;
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-primary:disabled {
+  @apply opacity-50 cursor-not-allowed;
+  transform: none;
+}
+
+.btn-secondary {
+  @apply bg-white/20 text-white font-medium px-6 py-3 rounded-xl border border-white/25;
+  will-change: background;
+  transition: background 0.1s ease-out;
+}
+
+.btn-secondary:hover {
+  @apply bg-white/30;
+}
+
+.btn-ghost {
+  @apply text-gray-600 px-4 py-2 rounded-lg;
+  transition: background 0.1s ease-out, color 0.1s ease-out;
+}
+
+.btn-ghost:hover {
+  @apply text-gray-900 bg-gray-100;
+}
+
+/* Progress bar - smooth */
+.progress-bar {
+  @apply h-3 bg-gray-200 rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-gradient-to-r from-primary-500 to-accent-500 rounded-full;
+  transition: width 0.3s ease-out;
+}
+
+/* Badge */
+.badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+}
+
+.badge-success { @apply bg-green-100 text-green-800; }
+.badge-warning { @apply bg-yellow-100 text-yellow-800; }
+.badge-danger { @apply bg-red-100 text-red-800; }
+.badge-info { @apply bg-blue-100 text-blue-800; }
+
+/* Status colors */
+.status-new { @apply bg-blue-500; }
+.status-contacted { @apply bg-yellow-500; }
+.status-replied { @apply bg-green-500; }
+.status-call { @apply bg-purple-500; }
+.status-won { @apply bg-emerald-500; }
+.status-lost { @apply bg-red-500; }
+
+/* Animations - GPU accelerated */
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(8px) translateZ(0); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) translateZ(0); 
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-out;
+  will-change: opacity, transform;
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateX(-16px) translateZ(0); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateX(0) translateZ(0); 
+  }
+}
+
+.animate-slideIn {
+  animation: slideIn 0.2s ease-out;
+  will-change: opacity, transform;
+}
+
+/* Fast pulse for loading */
+@keyframes fastPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fastPulse {
+  animation: fastPulse 0.8s ease-in-out infinite;
+}
+
+/* Score indicator */
+.score-high { @apply text-green-500; }
+.score-medium { @apply text-yellow-500; }
+.score-low { @apply text-red-500; }
+
+/* Input focus - instant */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.4);
+  transition: box-shadow 0.1s ease-out;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
