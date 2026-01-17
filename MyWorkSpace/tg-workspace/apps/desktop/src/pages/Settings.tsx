@@ -19,7 +19,7 @@ export default function Settings() {
     const [apiKey, setApiKey] = useState('')
     const [quota, setQuota] = useState<any>(null)
     const [checkingKey, setCheckingKey] = useState(false)
-    const [professions, setProfessions] = useState<{code: string, label: string}[]>([])
+    const [professions, setProfessions] = useState<{ code: string, label: string }[]>([])
     const [userProfessions, setUserProfessions] = useState<string[]>([])
 
     useEffect(() => {
@@ -81,7 +81,14 @@ export default function Settings() {
         setSaving(true)
         try {
             await settingsApi.setUserProfessions(userProfessions)
-            addNotification('success', 'Профессии сохранены')
+
+            // Get labels for selected professions
+            const selectedLabels = professions
+                .filter(p => userProfessions.includes(p.code))
+                .map(p => p.label)
+                .join(', ')
+
+            addNotification('success', `Профессии сохранены: ${selectedLabels}`)
         } catch (err) {
             console.error('Failed to save professions:', err)
             addNotification('error', 'Ошибка сохранения профессий')
@@ -196,8 +203,8 @@ export default function Settings() {
                             key={prof.code}
                             onClick={() => toggleProfession(prof.code)}
                             className={`p-3 rounded-lg border-2 text-left transition-all ${userProfessions.includes(prof.code)
-                                    ? 'border-indigo-500 bg-indigo-50'
-                                    : 'border-gray-200 hover:border-gray-300'
+                                ? 'border-indigo-500 bg-indigo-50'
+                                : 'border-gray-200 hover:border-gray-300'
                                 }`}
                         >
                             <div className="flex items-center gap-2">
@@ -205,8 +212,8 @@ export default function Settings() {
                                     <Check className="w-4 h-4 text-indigo-500" />
                                 )}
                                 <span className={`text-sm ${userProfessions.includes(prof.code)
-                                        ? 'text-indigo-700 font-medium'
-                                        : 'text-gray-700'
+                                    ? 'text-indigo-700 font-medium'
+                                    : 'text-gray-700'
                                     }`}>
                                     {prof.label}
                                 </span>

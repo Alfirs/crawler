@@ -513,19 +513,16 @@ class TelegramService:
         if self.client:
             await self.client.disconnect()
 
-    async def import_history(
+    async def import_history_stream(
         self, 
         link: str, 
         limit: int = 100, 
-        offset_date: Optional[datetime] = None
-    ) -> Dict[str, Any]:
+        offset_date: Optional[datetime] = None,
+        batch_size: int = 50
+    ):
         """
-        Import history from a chat link
-        
-        Args:
-            link: Chat username, invite link, or ID
-            limit: Maximum number of messages to fetch
-            offset_date: Only fetch messages newer than this date
+        Stream history from a chat link in batches
+        Yields dict with messages batch and metadata
         """
         if not self.client or not self.is_authorized:
             raise ValueError("Not authorized")
@@ -540,14 +537,7 @@ class TelegramService:
                 chat_title = f"{getattr(entity, 'first_name', '')} {getattr(entity, 'last_name', '')}".strip()
             
             # 3. Iterate messages
-            messages = []
-            
-            # Telethon's iter_messages arguments:
-            # offset_date: messages OLDER than this date (not what we want usually for "since date")
-            # But wait, telethon iterates backwards (newest to oldest).
-            # If we want messages SINCE a date, we actually want messages WHERE date > offset_date.
-            # Telethon has `reverse=True` to iterate oldest to newest, but default is newest to oldest.
-            # If default (Newest->Oldest): stop when message.date < offset_date.
+            current_batch = []
             
             async for msg in self.client.iter_messages(entity, limit=limit):
                 if offset_date and msg.date.replace(tzinfo=None) < offset_date.replace(tzinfo=None):
@@ -568,7 +558,7 @@ class TelegramService:
                     else:
                         sender_name = getattr(msg.sender, 'title', 'Unknown')
                 
-                messages.append({
+                current_batch.append({
                     "id": msg.id, # Message ID in chat
                     "date": msg.date.isoformat(),
                     "text": msg.text,
@@ -577,23 +567,33 @@ class TelegramService:
                     "sender_username": sender_username,
                     "is_outgoing": msg.out,
                     "reply_to_msg_id": msg.reply_to_msg_id if msg.reply_to else None,
-                    # Raw data for potential future use
                     "raw_json": {
                         "id": msg.id,
                         "date": msg.date.isoformat(),
                         "chat_id": entity.id
                     }
                 })
-                
-            return {
-                "status": "success",
-                "chat_title": chat_title,
-                "chat_id": entity.id,
-                "messages": messages
-            }
+
+                if len(current_batch) >= batch_size:
+                    yield {
+                        "status": "success",
+                        "chat_title": chat_title,
+                        "chat_id": entity.id,
+                        "messages": current_batch
+                    }
+                    current_batch = []
+            
+            # Yield remaining
+            if current_batch:
+                yield {
+                    "status": "success",
+                    "chat_title": chat_title,
+                    "chat_id": entity.id,
+                    "messages": current_batch
+                }
             
         except Exception as e:
-            return {
+            yield {
                 "status": "error",
                 "message": str(e)
             }

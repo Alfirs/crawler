@@ -91,35 +91,33 @@ async def process_import_job(job_id: int, source_id: int, link: str, limit: int,
             except:
                 pass
         
-        job.message = f"Получение истории (до {limit} сообщений)..."
+        job.message = f"Получение истории (лимит: {limit})..."
+        job.total_items = limit
         db.commit()
 
         # Execute Import
         try:
-            result = await telegram.import_history(link, limit=limit, offset_date=offset_date)
-            
-            if result.get("status") == "error":
-                raise Exception(result.get("message"))
-            
-            messages_data = result.get("messages", [])
-            total_msgs = len(messages_data)
-            
-            # Update source title if found
-            if result.get("chat_title"):
-                source.title = result.get("chat_title")
-                
-            job.total_items = total_msgs
-            db.commit()
-            
-            # Save messages
-            batch_size = 50
             processed = 0
-            
-            for i in range(0, total_msgs, batch_size):
-                batch = messages_data[i:i+batch_size]
+            # Consuming stream
+            async for result in telegram.import_history_stream(link, limit=limit, offset_date=offset_date, batch_size=50):
+                if result.get("status") == "error":
+                    print(f"Import stream error: {result.get('message')}")
+                    # We continue or break? Let's log and continue if possible, or break if critical
+                    # Usually error here means disconnection or heavy failure
+                    raise Exception(result.get("message"))
                 
-                for msg_data in batch:
-                    # Check if exists (optional, simply generic add for now)
+                messages_data = result.get("messages", [])
+                
+                # Update source details on first batch
+                if result.get("chat_title") and not source.title.startswith("Import:"):
+                   # Only update if we don't have a good title yet, or overwrite?
+                   pass
+                if result.get("chat_title"):
+                     source.title = result.get("chat_title")
+                
+                source.type = "telegram_import"
+
+                for msg_data in messages_data:
                     message = Message(
                         source_id=source.id,
                         msg_id=str(msg_data.get('id')), 
@@ -131,32 +129,53 @@ async def process_import_job(job_id: int, source_id: int, link: str, limit: int,
                     )
                     db.add(message)
                 
-                processed += len(batch)
-                job.processed_items = processed
-                job.progress = 10 + int((processed / total_msgs) * 90) if total_msgs > 0 else 100
-                db.commit()
+                processed += len(messages_data)
                 
+                # Update Job Progress
+                # Progress ranges from 10% to 90% during download
+                job.processed_items = processed
+                progress_percent = 10 + int((processed / limit) * 80)
+                job.progress = min(progress_percent, 90) # Cap at 90 until done
+                job.message = f"Загружено {processed} сообщений..."
+                
+                db.commit()
+                # Clear session identity map to prevent memory bloat on large imports
+                db.expunge_all() 
+                
+                # Re-fetch objects attached to session if needed (job, source)
+                # But we modified them, so they might be detached.
+                # Actually, simple db.commit() expires them, so next access reloads them.
+                # Since we access them in next loop iteration (job.progress = ...), they will be re-fetched.
+                # Just need to make sure they exist.
+                # Performance optimization: we could just update the ID without fetching, but ORM is cleaner.
+                
+                # We need to re-fetch/merge job and source because expunge_all detached them
+                job = db.merge(job)
+                source = db.merge(source)
+
             source.parsed_at = datetime.utcnow()
-            source.message_count = total_msgs
-            source.type = "telegram_import" # specialized type
+            source.message_count = processed
             
             job.status = "completed"
             job.progress = 100
-            job.result = {"source_id": source.id, "message_count": total_msgs, "auto_classify": auto_classify}
+            job.total_items = processed # Update total to actual matched
+            job.message = f"Импорт завершен: {processed} сообщений"
+            job.result = {"source_id": source.id, "message_count": processed, "auto_classify": auto_classify}
             
             db.commit()
             
             # Auto-classify if requested
-            if auto_classify and total_msgs > 0:
+            if auto_classify and processed > 0:
                 job.message = "Импорт завершен. Запуск классификации..."
                 db.commit()
-                # Trigger classification inline (using same db session)
+                # Trigger classification inline
+                # Note: process_classify_job_inline uses its own queries, so it's fine.
                 process_classify_job_inline(source.id, db)
 
         except Exception as e:
             job.status = "failed"
             job.error = f"Import error: {str(e)}"
-            db.delete(source) # Cleanup empty source
+            db.delete(source) # Cleanup
             db.commit()
             
     except Exception as e:
