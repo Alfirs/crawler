@@ -78,15 +78,13 @@ export class InboundWebhookService {
           }
 
           if (remoteJid && content) {
-            await bitrix24Provider.sendMessageToOpenChannel({
-              lineId,
+            const messageText = content.text || content.caption || (content.mediaType ? `[${content.mediaType}]` : '');
+
+            await bitrix24Provider.forwardExternalMessage({
               externalChatId: remoteJid,
-              externalUserId: phoneNumber,
-              externalUserName: event.sender.displayName || 'Unknown',
-              messageId: event.externalMessageRef.id,
-              messageText: content.text || content.caption || (content.mediaType ? `[${content.mediaType}]` : ''),
-              messageTimestamp: Math.floor(Date.now() / 1000),
-              files: files.length > 0 ? files : undefined
+              userName: event.sender.displayName || 'WhatsApp User',
+              message: messageText,
+              source: 'whatsapp'
             });
           }
         }

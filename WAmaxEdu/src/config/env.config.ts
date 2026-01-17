@@ -45,7 +45,13 @@ const envSchema = z.object({
   BITRIX24_PORTAL_URL: z.string().optional(),
   BITRIX24_WEBHOOK_URL: z.string().optional(),
   BITRIX24_CONNECTOR_ID: z.string().default('wamaxedu_whatsapp_dev'),
+  BITRIX24_MAX_CONNECTOR_ID: z.string().default('wamaxedu_max_dev'),
   BITRIX24_TEST_LINE_ID: z.string().optional(),
+
+  // MAX Messenger
+  MAX_BOT_TOKEN: z.string().optional(),
+  MAX_API_URL: z.string().default('https://platform-api.max.ru'),
+  MAX_WEBHOOK_URL: z.string().optional(),
 
   // Event broker (RabbitMQ)
   RABBITMQ_ENABLED: booleanString.default(false),

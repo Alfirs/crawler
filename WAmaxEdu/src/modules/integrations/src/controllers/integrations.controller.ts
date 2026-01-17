@@ -3,6 +3,7 @@ import { OutboundMessageController } from './outbound-message.controller';
 import { InboundWebhookController } from './inbound-webhook.controller';
 import { ChannelController } from './channel.controller';
 import { createBitrix24Router } from './bitrix24-webhook.controller';
+import { createMaxRouter } from './max-webhook.controller';
 
 export class IntegrationsController {
   private router: Router;
@@ -15,6 +16,7 @@ export class IntegrationsController {
     const inboundWebhookController = new InboundWebhookController();
     const channelController = new ChannelController();
     const bitrix24Router = createBitrix24Router();
+    const maxRouter = createMaxRouter();
 
     // Routes
     this.router.post('/whatsapp/outbound/send', outboundMessageController.sendMessage);
@@ -26,6 +28,9 @@ export class IntegrationsController {
 
     // Bitrix24 Routes
     this.router.use('/bitrix24', bitrix24Router);
+
+    // MAX Messenger Routes
+    this.router.use('/max', maxRouter);
   }
 
   get routerInstance(): Router {

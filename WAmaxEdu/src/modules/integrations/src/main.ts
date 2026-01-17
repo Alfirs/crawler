@@ -97,6 +97,14 @@ if (process.env.NODE_ENV !== 'test') {
       const port = process.env.PORT || 3001;
       app.listen(port, () => {
         logger.info(`Integrations Service started on port ${port}`);
+
+        // Start Bitrix24 message poller for reverse flow
+        import('./services/providers/bitrix24-poller.service').then(({ bitrix24Poller }) => {
+          bitrix24Poller.start(5000); // Poll every 5 seconds
+          logger.info('Bitrix24 poller started');
+        }).catch(() => {
+          logger.warn('Bitrix24 poller not available');
+        });
       });
     } catch (error) {
       logger.error({ err: error }, 'Failed to start integrations service');

@@ -1,6 +1,7 @@
 import { Request, Response, Router } from 'express';
 import { bitrix24Provider } from '../services/providers/bitrix24-provider.service';
 import { WhatsAppProviderService } from '../services/providers/whatsapp-provider.service';
+import { maxProvider } from '../services/providers/max-provider.service';
 import { logger } from '@/config/logger.config';
 import { config } from '@/config/env.config';
 
@@ -59,45 +60,38 @@ export class Bitrix24WebhookController {
         const lineId = data.LINE;
         const messages = data.MESSAGES || [];
 
-        if (connector !== bitrix24Provider.getConnectorId()) {
-            logger.warn({ connector }, 'Message not for our connector');
-            return;
+        if (connector === config.BITRIX24_CONNECTOR_ID) {
+            await this.sendToWhatsApp(messages, lineId);
+        } else if (connector === config.BITRIX24_MAX_CONNECTOR_ID) {
+            await this.sendToMax(messages, lineId);
+        } else {
+            logger.warn({ connector }, 'Message not for our configured connectors');
         }
+    }
 
+    private async sendToWhatsApp(messages: any[], lineId: string): Promise<void> {
         for (const msg of messages) {
-            const chatId = msg.chat?.id; // External chat ID (WhatsApp JID)
+            const chatId = msg.chat?.id;
             const messageText = msg.message?.text;
             const files = msg.message?.files || [];
 
-            if (!chatId || !messageText) {
-                logger.warn({ msg }, 'Missing chatId or messageText');
-                continue;
-            }
+            if (!chatId || !messageText) continue;
 
-            // Extract phone number from WhatsApp JID
             // Format: 79010535205@s.whatsapp.net -> 79010535205
             const phoneNumber = chatId.replace('@s.whatsapp.net', '').replace('@c.us', '');
 
             try {
-                // Send message to WhatsApp via Evolution API
                 const instanceName = config.EVOLUTION_INSTANCE_NAME || 'wamaxedu';
 
                 await this.whatsappProvider.sendMessage({
                     instanceName,
                     to: phoneNumber,
                     type: 'text',
-                    content: {
-                        text: messageText,
-                    },
+                    content: { text: messageText },
                 });
 
-                logger.info({
-                    phoneNumber,
-                    messageText: messageText.substring(0, 50),
-                    lineId
-                }, 'Message sent to WhatsApp from Bitrix24');
+                logger.info({ phoneNumber, messageText: messageText.substring(0, 50), lineId }, 'Sent to WhatsApp');
 
-                // Handle file attachments if any
                 for (const file of files) {
                     if (file.link) {
                         await this.whatsappProvider.sendMessage({
@@ -113,7 +107,37 @@ export class Bitrix24WebhookController {
                     }
                 }
             } catch (error) {
-                logger.error({ err: error, phoneNumber }, 'Failed to send message to WhatsApp');
+                logger.error({ err: error, phoneNumber }, 'Failed to send to WhatsApp');
+            }
+        }
+    }
+
+    private async sendToMax(messages: any[], lineId: string): Promise<void> {
+        for (const msg of messages) {
+            const chatId = msg.chat?.id; // MAX chat ID
+            const messageText = msg.message?.text;
+            const files = msg.message?.files || []; // MAX attachments?
+
+            if (!chatId || !messageText) continue;
+
+            try {
+                // TBD: Handle attachments for MAX
+                const attachments = files.map((f: any) => ({
+                    type: this.getMediaType(f.type),
+                    url: f.link
+                })).filter((a: any) => a.url);
+
+                await maxProvider.sendMessage({
+                    chatId,
+                    text: messageText,
+                    format: 'markdown', // Bitrix sends plain text, maybe convert?
+                    attachments: attachments.length ? attachments : undefined
+                });
+
+                logger.info({ chatId, messageText: messageText.substring(0, 50), lineId }, 'Sent to MAX');
+
+            } catch (error) {
+                logger.error({ err: error, chatId }, 'Failed to send to MAX');
             }
         }
     }
@@ -149,11 +173,19 @@ export class Bitrix24WebhookController {
      */
     setupWebhook = async (req: Request, res: Response): Promise<void> => {
         try {
-            // Register connector if not already registered
-            const registered = await bitrix24Provider.registerConnector();
+            // Register connectors
+            const registeredWA = await bitrix24Provider.registerConnector(
+                config.BITRIX24_CONNECTOR_ID,
+                'WAmaxEdu WhatsApp'
+            );
 
-            if (!registered) {
-                res.status(500).json({ error: 'Failed to register connector' });
+            const registeredMAX = await bitrix24Provider.registerConnector(
+                config.BITRIX24_MAX_CONNECTOR_ID,
+                'WAmaxEdu MAX'
+            );
+
+            if (!registeredWA && !registeredMAX) {
+                res.status(500).json({ error: 'Failed to register connectors' });
                 return;
             }
 
@@ -162,9 +194,10 @@ export class Bitrix24WebhookController {
 
             res.status(200).json({
                 success: true,
-                connectorId: bitrix24Provider.getConnectorId(),
+                success: true,
+                connectors: [config.BITRIX24_CONNECTOR_ID, config.BITRIX24_MAX_CONNECTOR_ID],
                 availableLines: lines,
-                message: 'Connector registered. Activate it for a specific Open Channel line.',
+                message: 'Connectors registered. Activate them for a specific Open Channel line.',
             });
         } catch (error) {
             logger.error({ err: error }, 'Failed to setup Bitrix24 webhook');
@@ -184,10 +217,11 @@ export class Bitrix24WebhookController {
                 return;
             }
 
-            const activated = await bitrix24Provider.activateConnector(lineId);
+            const activatedWA = await bitrix24Provider.activateConnector(config.BITRIX24_CONNECTOR_ID, lineId);
+            const activatedMAX = await bitrix24Provider.activateConnector(config.BITRIX24_MAX_CONNECTOR_ID, lineId);
 
-            if (!activated) {
-                res.status(500).json({ error: 'Failed to activate connector for line' });
+            if (!activatedWA && !activatedMAX) {
+                res.status(500).json({ error: 'Failed to activate connectors for line' });
                 return;
             }
 

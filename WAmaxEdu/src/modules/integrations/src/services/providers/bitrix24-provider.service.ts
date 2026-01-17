@@ -55,31 +55,29 @@ export class Bitrix24ProviderService {
     }
 
     /**
-     * Register custom connector for WhatsApp
+     * Register custom connector
      * Should be called once during setup
      */
-    async registerConnector(): Promise<boolean> {
+    async registerConnector(connectorId: string, name: string): Promise<boolean> {
         try {
             await this.callMethod('imconnector.register', {
-                ID: this.connectorId,
-                NAME: 'WAmaxEdu WhatsApp',
+                ID: connectorId,
+                NAME: name,
                 ICON: {
                     DATA_IMAGE: '', // Base64 icon (optional)
                 },
                 PLACEMENT_HANDLER: '', // URL for iframe placement (optional)
             });
 
-            logger.info({ connectorId: this.connectorId }, 'Bitrix24 connector registered');
-            this.isConnectorRegistered = true;
+            logger.info({ connectorId }, 'Bitrix24 connector registered');
             return true;
         } catch (error: any) {
             // Connector might already be registered
             if (error.message?.includes('already registered') || error.message?.includes('ID_ALREADY_EXISTS')) {
-                logger.info({ connectorId: this.connectorId }, 'Bitrix24 connector already registered');
-                this.isConnectorRegistered = true;
+                logger.info({ connectorId }, 'Bitrix24 connector already registered');
                 return true;
             }
-            logger.error({ err: error }, 'Failed to register Bitrix24 connector');
+            logger.error({ err: error, connectorId }, 'Failed to register Bitrix24 connector');
             return false;
         }
     }
@@ -87,31 +85,32 @@ export class Bitrix24ProviderService {
     /**
      * Activate connector for a specific Open Channel line
      */
-    async activateConnector(lineId: string): Promise<boolean> {
+    async activateConnector(connectorId: string, lineId: string): Promise<boolean> {
         try {
             await this.callMethod('imconnector.activate', {
-                CONNECTOR: this.connectorId,
+                CONNECTOR: connectorId,
                 LINE: lineId,
                 ACTIVE: 1,
             });
 
-            logger.info({ connectorId: this.connectorId, lineId }, 'Bitrix24 connector activated');
+            logger.info({ connectorId, lineId }, 'Bitrix24 connector activated');
             return true;
         } catch (error) {
-            logger.error({ err: error, lineId }, 'Failed to activate Bitrix24 connector');
+            logger.error({ err: error, connectorId, lineId }, 'Failed to activate Bitrix24 connector');
             return false;
         }
     }
 
     /**
-     * Send incoming WhatsApp message to Bitrix24 Open Channel
+     * Send incoming message to Bitrix24 Open Channel
      * This creates a new chat or continues existing conversation
      */
     async sendMessageToOpenChannel(params: {
+        connectorId?: string;
         lineId: string;
-        externalChatId: string;      // WhatsApp JID (e.g., 79010535205@s.whatsapp.net)
-        externalUserId: string;       // WhatsApp number
-        externalUserName: string;     // Contact name from WhatsApp
+        externalChatId: string;      // WhatsApp/MAX chatId
+        externalUserId: string;       // User ID
+        externalUserName: string;     // Contact name
         messageId: string;            // External message ID
         messageText: string;          // Message content
         messageTimestamp: number;     // Unix timestamp
@@ -121,16 +120,17 @@ export class Bitrix24ProviderService {
             type: string;
         }>;
     }): Promise<{ chatId: number; messageId: number } | null> {
+        const connector = params.connectorId || this.connectorId;
         try {
             const result = await this.callMethod('imconnector.send.messages', {
-                CONNECTOR: this.connectorId,
+                CONNECTOR: connector,
                 LINE: params.lineId,
                 MESSAGES: [{
                     user: {
                         id: params.externalUserId,
                         name: params.externalUserName,
                         avatar: '',
-                        url: `https://wa.me/${params.externalUserId.replace(/\D/g, '')}`,
+                        url: `https://wa.me/${params.externalUserId.replace(/\D/g, '')}`, // TBD: Custom profile URL for MAX?
                     },
                     chat: {
                         id: params.externalChatId,
@@ -147,6 +147,7 @@ export class Bitrix24ProviderService {
             });
 
             logger.info({
+                connector,
                 externalChatId: params.externalChatId,
                 messageId: params.messageId,
                 result
@@ -159,18 +160,17 @@ export class Bitrix24ProviderService {
         }
     }
 
-    /**
-     * Update message status in Bitrix24 (delivered, read)
-     */
     async updateMessageStatus(params: {
+        connectorId?: string;
         lineId: string;
         externalChatId: string;
         messageIds: string[];
         status: 'delivered' | 'read';
     }): Promise<boolean> {
+        const connector = params.connectorId || this.connectorId;
         try {
             await this.callMethod('imconnector.send.status.delivery', {
-                CONNECTOR: this.connectorId,
+                CONNECTOR: connector,
                 LINE: params.lineId,
                 MESSAGES: params.messageIds.map(id => ({
                     im: { chat_id: params.externalChatId, message_id: id },
@@ -264,6 +264,138 @@ export class Bitrix24ProviderService {
      */
     getConnectorId(): string {
         return this.connectorId;
+    }
+
+    // ============================================
+    // WEBHOOK-COMPATIBLE METHODS (no OAuth needed)
+    // ============================================
+
+    /**
+     * Store for external chat ID -> Bitrix chat ID mapping
+     */
+    private chatMapping: Map<string, number> = new Map();
+
+    /**
+     * Create or get existing chat for external user
+     * Uses im.chat.add (works with webhooks)
+     */
+    async getOrCreateChat(params: {
+        externalChatId: string;
+        userName: string;
+        source: 'whatsapp' | 'max';
+    }): Promise<number | null> {
+        // Check cache first
+        const cached = this.chatMapping.get(params.externalChatId);
+        if (cached) return cached;
+
+        try {
+            const chatId = await this.callMethod<number>('im.chat.add', {
+                TYPE: 'OPEN',
+                TITLE: `${params.source === 'whatsapp' ? 'WhatsApp' : 'MAX'}: ${params.userName}`,
+                DESCRIPTION: `External ID: ${params.externalChatId}`,
+                USERS: [], // Will be assigned to open line operators
+            });
+
+            this.chatMapping.set(params.externalChatId, chatId);
+            logger.info({ externalChatId: params.externalChatId, bitrixChatId: chatId }, 'Created Bitrix chat');
+            return chatId;
+        } catch (error) {
+            logger.error({ err: error, params }, 'Failed to create Bitrix chat');
+            return null;
+        }
+    }
+
+    /**
+     * Send message to Bitrix chat
+     * Uses im.message.add (works with webhooks)
+     */
+    async sendMessageToChat(params: {
+        chatId: number;
+        message: string;
+        fromUser?: string;
+    }): Promise<number | null> {
+        try {
+            const prefix = params.fromUser ? `[b]${params.fromUser}:[/b]\n` : '';
+            const messageId = await this.callMethod<number>('im.message.add', {
+                DIALOG_ID: `chat${params.chatId}`,
+                MESSAGE: prefix + params.message,
+                SYSTEM: 'Y', // Make message look system-generated (centered) to distinguish from outgoing
+            });
+
+            logger.info({ chatId: params.chatId, messageId }, 'Message sent to Bitrix');
+            return messageId;
+        } catch (error) {
+            logger.error({ err: error, params }, 'Failed to send message to Bitrix');
+            return null;
+        }
+    }
+
+    /**
+     * Simplified method: receive external message and forward to Bitrix
+     */
+    async forwardExternalMessage(params: {
+        externalChatId: string;
+        userName: string;
+        message: string;
+        source: 'whatsapp' | 'max';
+        registerForPolling?: boolean;
+    }): Promise<boolean> {
+        const chatId = await this.getOrCreateChat({
+            externalChatId: params.externalChatId,
+            userName: params.userName,
+            source: params.source,
+        });
+
+        if (!chatId) return false;
+
+        const messageId = await this.sendMessageToChat({
+            chatId,
+            message: params.message,
+            fromUser: params.userName,
+        });
+
+        // Register with poller for reverse flow (after sending, so we have messageId)
+        if (params.registerForPolling !== false && messageId) {
+            try {
+                const { bitrix24Poller } = await import('./bitrix24-poller.service');
+                bitrix24Poller.registerChat(chatId, params.externalChatId, params.source, messageId);
+            } catch (e) {
+                // Poller not available, skip
+            }
+        }
+
+        return !!messageId;
+    }
+
+    /**
+     * Get messages from a Bitrix chat (for polling)
+     */
+    async getChatMessages(chatId: number, lastMessageId: number = 0): Promise<Array<{
+        id: number;
+        text: string;
+        author_id: number;
+    }> | null> {
+        try {
+            const result = await this.callMethod<any>('im.dialog.messages.get', {
+                DIALOG_ID: `chat${chatId}`,
+                LAST_ID: lastMessageId,
+                LIMIT: 20
+            });
+
+            if (!result?.messages) return null;
+
+            // Filter only new messages from operators (author_id > 0 means real user)
+            return result.messages
+                .filter((m: any) => m.id > lastMessageId && m.author_id > 0)
+                .map((m: any) => ({
+                    id: m.id,
+                    text: m.text || '',
+                    author_id: m.author_id
+                }));
+        } catch (error) {
+            logger.error({ err: error, chatId }, 'Failed to get chat messages');
+            return null;
+        }
     }
 }
 
