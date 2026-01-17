@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Save, AlertTriangle, Shield, Target, Key } from 'lucide-react'
+import { Save, AlertTriangle, Shield, Target, Key, Briefcase, Check } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { settingsApi } from '../lib/api'
 import api from '../lib/api'
@@ -19,6 +19,8 @@ export default function Settings() {
     const [apiKey, setApiKey] = useState('')
     const [quota, setQuota] = useState<any>(null)
     const [checkingKey, setCheckingKey] = useState(false)
+    const [professions, setProfessions] = useState<{code: string, label: string}[]>([])
+    const [userProfessions, setUserProfessions] = useState<string[]>([])
 
     useEffect(() => {
         loadSettings()
@@ -26,12 +28,16 @@ export default function Settings() {
 
     const loadSettings = async () => {
         try {
-            const [settingsRes, quotaRes] = await Promise.all([
+            const [settingsRes, quotaRes, professionsRes, userProfessionsRes] = await Promise.all([
                 settingsApi.getAll(),
                 settingsApi.getQuota(),
+                settingsApi.getProfessionsList(),
+                settingsApi.getUserProfessions(),
             ])
             setSettings(settingsRes.data)
             setQuota(quotaRes.data)
+            setProfessions(professionsRes.data)
+            setUserProfessions(userProfessionsRes.data.professions || [])
         } catch (err) {
             console.error('Failed to load settings:', err)
         } finally {
@@ -61,6 +67,27 @@ export default function Settings() {
         if (!apiKey.trim()) return
         await updateSetting('gemini_api_key', apiKey)
         setApiKey('')
+    }
+
+    const toggleProfession = (code: string) => {
+        setUserProfessions(prev =>
+            prev.includes(code)
+                ? prev.filter(p => p !== code)
+                : [...prev, code]
+        )
+    }
+
+    const saveProfessions = async () => {
+        setSaving(true)
+        try {
+            await settingsApi.setUserProfessions(userProfessions)
+            addNotification('success', 'Профессии сохранены')
+        } catch (err) {
+            console.error('Failed to save professions:', err)
+            addNotification('error', 'Ошибка сохранения профессий')
+        } finally {
+            setSaving(false)
+        }
     }
 
     const testGeminiConnection = async () => {
@@ -150,6 +177,54 @@ export default function Settings() {
                 <p className="text-xs text-gray-400 mt-2">
                     Получить ключ: <a href="https://aistudio.google.com/apikey" target="_blank" className="text-primary-500 hover:underline">Google AI Studio</a>
                 </p>
+            </div>
+
+            {/* Professions */}
+            <div className="card">
+                <div className="flex items-center gap-3 mb-4">
+                    <Briefcase className="w-6 h-6 text-gray-600" />
+                    <h2 className="text-lg font-bold text-gray-800">Мои Профессии</h2>
+                </div>
+
+                <p className="text-gray-600 text-sm mb-4">
+                    Выберите профессии, по которым вы хотите получать лиды. Это поможет отфильтровать лишнее.
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                    {professions.map(prof => (
+                        <button
+                            key={prof.code}
+                            onClick={() => toggleProfession(prof.code)}
+                            className={`p-3 rounded-lg border-2 text-left transition-all ${userProfessions.includes(prof.code)
+                                    ? 'border-indigo-500 bg-indigo-50'
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                        >
+                            <div className="flex items-center gap-2">
+                                {userProfessions.includes(prof.code) && (
+                                    <Check className="w-4 h-4 text-indigo-500" />
+                                )}
+                                <span className={`text-sm ${userProfessions.includes(prof.code)
+                                        ? 'text-indigo-700 font-medium'
+                                        : 'text-gray-700'
+                                    }`}>
+                                    {prof.label}
+                                </span>
+                            </div>
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex justify-end">
+                    <button
+                        onClick={saveProfessions}
+                        disabled={saving}
+                        className="btn-primary flex items-center gap-2"
+                    >
+                        <Save className="w-4 h-4" />
+                        Сохранить профессии
+                    </button>
+                </div>
             </div>
 
             {/* Telegram Connection */}
