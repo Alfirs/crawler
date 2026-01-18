@@ -271,6 +271,18 @@ def process_upload_job(job_id: int, file_path: str, source_id: int):
 
 def process_classify_job_inline(source_id: int, db: Session):
     """Inline classification (uses existing db session)"""
+    import hashlib
+    import re
+    
+    # NON-TECH ROLES FILTER - these are NOT tech tasks for automation specialist
+    NON_TECH_ROLES_RE = re.compile(
+        r"(?i)\b(продаж\w*|менеджер\w*|менедж\w*|оператор\w*|"
+        r"администратор\w*|секретар\w*|бухгалтер\w*|hr\w*|"
+        r"smm|смм|таргетолог\w*|дизайн\w*|копирайт\w*|"
+        r"рилсмейкер\w*|монтаж\w*|репетитор\w*|учител\w*|"
+        r"продавец\w*|логист\w*|закупщ\w*|консультант\w*)\b"
+    )
+    
     # Get all message IDs for this source
     message_ids = db.query(Message.id).filter(Message.source_id == source_id).all()
     message_ids = [m[0] for m in message_ids]
@@ -283,8 +295,15 @@ def process_classify_job_inline(source_id: int, db: Session):
     existing_leads = db.query(Lead.message_id).join(Message, Lead.message_id == Message.id).filter(Message.source_id == source_id).all()
     existing_ids = set(l[0] for l in existing_leads)
     
+    # ANTI-DUPLICATE: Get text hashes of existing leads to detect duplicates by content
+    existing_text_hashes = set()
+    for lead_id in existing_ids:
+        msg = db.query(Message.text).filter(Message.id == lead_id).first()
+        if msg and msg.text:
+            text_hash = hashlib.md5(msg.text.strip().lower()[:200].encode()).hexdigest()
+            existing_text_hashes.add(text_hash)
+    
     # Determine messages to process
-    # message_ids is already fetched
     to_process_ids = [mid for mid in message_ids if mid not in existing_ids]
     
     if not to_process_ids:
@@ -311,6 +330,15 @@ def process_classify_job_inline(source_id: int, db: Session):
             # Skip very short messages
             if len(text) < 15:
                 continue
+            
+            # ANTI-DUPLICATE: Check if similar text already exists
+            text_hash = hashlib.md5(text.strip().lower()[:200].encode()).hexdigest()
+            if text_hash in existing_text_hashes:
+                continue  # Skip duplicate content
+            
+            # STRICT FILTER: Skip non-tech roles (sales, managers, SMM, design, etc.)
+            if NON_TECH_ROLES_RE.search(text):
+                continue  # Not a tech task
             
             # Quick filter first
             is_potential, quick_type = quick_filter(text)
@@ -371,6 +399,9 @@ def process_classify_job_inline(source_id: int, db: Session):
                 
                 db.add(lead)
                 leads_created += 1
+                
+                # Track this hash to prevent duplicates in same batch
+                existing_text_hashes.add(text_hash)
         
         db.commit()
     
