@@ -65,17 +65,20 @@ _VACANCY_LOOKING_ROLE_RE = re.compile(
     rf"(?i)\b(ищу|ищем|нужн(о|а|ы|ен)|требуетс\w*|ваканс\w*|нанима\w*)\b(?:\s+\w+){{0,6}}\s+({_VACANCY_ROLES})\b"
 )
 
-# Tech keywords - these indicate automation/development tasks
+# Tech keywords - these indicate automation/development tasks (ENHANCED for tech specialists)
 _TECH_HINT_RE = re.compile(
     r"(?i)\b(автоматизац\w*|автоматизир\w*|бот\w*|чат[-\s]?бот\w*|telegram\s+bot|телеграм\s+бот|"
-    r"aiogram|salebot|manychat|"
-    r"n8n|make|integromat|webhook|api|"
-    r"google\s+sheets|sheets|crm|amocrm|bitrix|битрикс\w*|notion|"
-    r"парсинг|спарс\w*|выгруз\w*|scrap\w*|скрейп\w*|"
-    r"отчет\w*|отч[её]т\w*|метрик\w*|дашборд\w*|"
-    r"автопост\w*|контент[-\s]?завод\w*|"
+    r"aiogram|salebot|manychat|botfather|"
+    r"n8n|make|integromat|zapier|power\s+automate|webhook|api|rest\s+api|"
+    r"google\s+sheets|sheets|crm|amocrm|bitrix|битрикс\w*|notion|trello|"
+    r"парсинг|спарс\w*|выгруз\w*|scrap\w*|скрейп\w*|парс\w*|"
+    r"отчет\w*|отч[её]т\w*|метрик\w*|дашборд\w*|dashboard|"
+    r"автопост\w*|контент[-\s]?завод\w*|постинг|"
     r"лендинг\w*|сайт\w*|wordpress|tilda|taplink|квиз\w*|"
-    r"getcourse|геткурс\w*|prodamus|продамус\w*|senler|сенлер\w*)\b"
+    r"getcourse|геткурс\w*|prodamus|продамус\w*|senler|сенлер\w*|"
+    r"python|javascript|js\b|node\.?js|скрипт\w*|код\w*|программ\w*|"
+    r"gpt|openai|gemini|claude|нейросет\w*|нейронк\w*|\bии\b|\bai\b|llm|чатгпт|chatgpt|"
+    r"интеграц\w*|синхрониз\w*|автоматич\w*|воронк\w*|pipeline)\b"
 )
 
 # Non-tech roles (kill fit score)
@@ -289,8 +292,10 @@ def classify_intent_pattern(text: str) -> IntentResult:
     spam_score, spam_tags = _score_from_patterns(text_norm, _SPAM_PATTERNS)
     tags.extend(spam_tags)
     
-    offer_score, offer_tags = _score_from_patterns(text_norm, _SERVICE_OFFER_PATTERNS)
-    tags.extend(offer_tags)
+    # OFFER scoring - DISABLED (we ignore #помогу messages)
+    # offer_score, offer_tags = _score_from_patterns(text_norm, _SERVICE_OFFER_PATTERNS)
+    # tags.extend(offer_tags)
+    offer_score = 0.0  # Always zero - offers become CHATTER
     
     vacancy_score, vacancy_tags = _score_from_patterns(text_norm, _VACANCY_PATTERNS)
     tags.extend(vacancy_tags)

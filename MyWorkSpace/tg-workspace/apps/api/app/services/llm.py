@@ -47,6 +47,126 @@ def should_use_pro(context: Dict[str, Any]) -> bool:
     return False
 
 
+def classify_message_llm(text: str) -> Dict[str, Any]:
+    """
+    Use Gemini to classify message as tech task for automation specialist.
+    Focuses on: bots, automation, AI, integrations, parsing, CRM.
+    
+    Returns:
+        {
+            "is_tech_task": bool,
+            "confidence": float (0-1),
+            "task_type": str (bot/automation/integration/parsing/ai/other),
+            "tech_keywords": list[str],
+            "budget_hint": str or None,
+            "urgency": str (low/medium/high),
+            "reason": str
+        }
+    """
+    if not text or len(text.strip()) < 20:
+        return {
+            "is_tech_task": False,
+            "confidence": 0.0,
+            "task_type": "unknown",
+            "tech_keywords": [],
+            "budget_hint": None,
+            "urgency": "low",
+            "reason": "Text too short"
+        }
+    
+    try:
+        client = get_client()
+    except ValueError:
+        # No API key - return neutral result
+        return {
+            "is_tech_task": False,
+            "confidence": 0.0,
+            "task_type": "unknown",
+            "tech_keywords": [],
+            "budget_hint": None,
+            "urgency": "low",
+            "reason": "No API key configured"
+        }
+    
+    prompt = f"""Проанализируй сообщение из Telegram-чата и определи, является ли это ЗАКАЗОМ/ЗАДАЧЕЙ для технического специалиста по автоматизации.
+
+СООБЩЕНИЕ:
+\"\"\"{text[:1500]}\"\"\"
+
+Меня интересуют ТОЛЬКО задачи на:
+- Telegram/WhatsApp/VK боты (aiogram, salebot, manychat)
+- Автоматизация процессов (n8n, make, zapier)
+- Интеграции CRM (amocrm, bitrix, notion)
+- Парсинг данных, скрапинг
+- AI/GPT интеграции, нейросети
+- Скрипты на Python/JavaScript
+- Автопостинг, контент-заводы
+- GetCourse, Prodamus, воронки
+
+НЕ интересуют:
+- "#помогу" - предложения услуг от других фрилансеров
+- Вакансии на SMM, дизайн, таргет, копирайт
+- Поиск работы фрилансером
+- Спам, реклама, крипта
+- Просто болтовня/обсуждения
+
+Ответь СТРОГО в JSON:
+{{
+    "is_tech_task": true/false,
+    "confidence": 0.0-1.0,
+    "task_type": "bot|automation|integration|parsing|ai|site|other",
+    "tech_keywords": ["keyword1", "keyword2"],
+    "budget_hint": "50000 руб" или null,
+    "urgency": "low|medium|high",
+    "reason": "Краткое объяснение решения"
+}}"""
+    
+    try:
+        response = client.chat.completions.create(
+            model=FLASH_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,  # Low temp for consistent classification
+            max_tokens=400,
+        )
+        
+        content = response.choices[0].message.content.strip()
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        
+        if json_match:
+            result = json.loads(json_match.group())
+            # Validate required fields
+            result.setdefault("is_tech_task", False)
+            result.setdefault("confidence", 0.5)
+            result.setdefault("task_type", "other")
+            result.setdefault("tech_keywords", [])
+            result.setdefault("budget_hint", None)
+            result.setdefault("urgency", "low")
+            result.setdefault("reason", "")
+            return result
+        else:
+            return {
+                "is_tech_task": False,
+                "confidence": 0.3,
+                "task_type": "unknown",
+                "tech_keywords": [],
+                "budget_hint": None,
+                "urgency": "low",
+                "reason": "Failed to parse LLM response"
+            }
+            
+    except Exception as e:
+        logger.error(f"LLM classification error: {e}")
+        return {
+            "is_tech_task": False,
+            "confidence": 0.0,
+            "task_type": "error",
+            "tech_keywords": [],
+            "budget_hint": None,
+            "urgency": "low",
+            "reason": str(e)
+        }
+
+
 def generate_outreach_message(
     lead_text: str,
     lead_author: str,

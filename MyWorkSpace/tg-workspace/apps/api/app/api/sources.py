@@ -16,6 +16,7 @@ from app.db.models import Source, Message, Lead, Workspace, Job
 from app.services.parser import TelegramParser, filter_relevant_messages
 from app.services.classifier import classify_message, calculate_recency_score, calculate_total_score, quick_filter
 from app.services.telegram_client import get_telegram_service
+from app.services.llm import classify_message_llm
 
 router = APIRouter()
 
@@ -317,8 +318,33 @@ def process_classify_job_inline(source_id: int, db: Session):
             if not is_potential:
                 continue
             
-            # Full classification
+            # Stage 1: Pattern-based classification (fast)
             classification = classify_message(text, message.author or "")
+            
+            # Stage 2: LLM validation for TASK candidates
+            # Skip VACANCY (those are job offers, not client tasks)
+            # Use LLM to filter out non-tech tasks
+            if classification['type'] == 'TASK':
+                try:
+                    llm_result = classify_message_llm(text)
+                    
+                    # Only accept if LLM confirms it's a tech task
+                    if not llm_result.get('is_tech_task', False):
+                        # LLM says it's not a tech task - skip
+                        continue
+                    
+                    # Boost confidence if LLM agrees
+                    if llm_result.get('confidence', 0) > 0.7:
+                        classification['confidence'] = min(0.99, classification['confidence'] + 0.2)
+                    
+                    # Add LLM metadata to classification
+                    classification['llm_task_type'] = llm_result.get('task_type', 'unknown')
+                    classification['llm_keywords'] = llm_result.get('tech_keywords', [])
+                    
+                except Exception as e:
+                    # If LLM fails, still allow pattern-based result if confidence is high
+                    if classification['confidence'] < 0.6:
+                        continue
             
             if classification['type'] in ['TASK', 'VACANCY']:
                 recency_score = calculate_recency_score(message.date)
