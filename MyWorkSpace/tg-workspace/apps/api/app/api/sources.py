@@ -336,72 +336,78 @@ def process_classify_job_inline(source_id: int, db: Session):
             if text_hash in existing_text_hashes:
                 continue  # Skip duplicate content
             
-            # STRICT FILTER: Skip non-tech roles (sales, managers, SMM, design, etc.)
+            text_lower = text.lower()
+            
+            # =========== STRICT PRE-FILTERS ===========
+            # Filter 1: EXPLICIT #помогу / offer rejection
+            if re.search(r'(?i)(#помогу|#предлагаю|помогу\s+с\s+|возьму\s+проект|беру\s+заказ)', text_lower):
+                continue  # This is someone offering services, not a task
+            
+            # Filter 2: Job seeker posts (people looking for work)
+            if re.search(r'(?i)(ищу\s+работу|в\s+поиске\s+работы|ищу\s+заказы|ищу\s+подработку|открыт\s+для\s+предложений)', text_lower):
+                continue  # Not a client task
+            
+            # Filter 3: NON-TECH ROLES - be VERY strict
             if NON_TECH_ROLES_RE.search(text):
-                continue  # Not a tech task
+                # Double-check: if it also has tech keywords, it might be valid
+                tech_keywords = ['бот', 'автоматизац', 'парсинг', 'интеграц', 'api', 'n8n', 'make', 'python', 'скрипт', 'gpt', 'нейросет', 'ии']
+                has_tech = any(kw in text_lower for kw in tech_keywords)
+                if not has_tech:
+                    continue  # Pure non-tech role, skip
             
-            # Quick filter first
+            # Filter 4: Quick filter for obvious non-leads
             is_potential, quick_type = quick_filter(text)
-            
             if not is_potential:
                 continue
             
-            # Stage 1: Pattern-based classification (fast)
+            # =========== LLM VALIDATION FOR ALL CANDIDATES ===========
+            # Run LLM on EVERY candidate to confirm it's a real tech task
+            try:
+                llm_result = classify_message_llm(text)
+                
+                # BE STRICT: Only accept if LLM confirms it's a tech task with confidence
+                if not llm_result.get('is_tech_task', False):
+                    continue  # LLM says it's not a tech task
+                
+                if llm_result.get('confidence', 0) < 0.5:
+                    continue  # Low confidence, skip
+                
+            except Exception as e:
+                # If LLM fails, be conservative and skip
+                print(f"LLM error, skipping message: {e}")
+                continue
+            
+            # =========== SAVE CONFIRMED TECH LEAD ===========
+            # Only get here if LLM confirmed this is a tech task
             classification = classify_message(text, message.author or "")
             
-            # Stage 2: LLM validation for TASK candidates
-            # Skip VACANCY (those are job offers, not client tasks)
-            # Use LLM to filter out non-tech tasks
-            if classification['type'] == 'TASK':
-                try:
-                    llm_result = classify_message_llm(text)
-                    
-                    # Only accept if LLM confirms it's a tech task
-                    if not llm_result.get('is_tech_task', False):
-                        # LLM says it's not a tech task - skip
-                        continue
-                    
-                    # Boost confidence if LLM agrees
-                    if llm_result.get('confidence', 0) > 0.7:
-                        classification['confidence'] = min(0.99, classification['confidence'] + 0.2)
-                    
-                    # Add LLM metadata to classification
-                    classification['llm_task_type'] = llm_result.get('task_type', 'unknown')
-                    classification['llm_keywords'] = llm_result.get('tech_keywords', [])
-                    
-                except Exception as e:
-                    # If LLM fails, still allow pattern-based result if confidence is high
-                    if classification['confidence'] < 0.6:
-                        continue
+            recency_score = calculate_recency_score(message.date)
+            total_score = calculate_total_score(
+                classification['fit_score'],
+                classification['money_score'],
+                recency_score,
+                llm_result.get('confidence', 0.7)  # Use LLM confidence
+            )
             
-            if classification['type'] in ['TASK', 'VACANCY']:
-                recency_score = calculate_recency_score(message.date)
-                total_score = calculate_total_score(
-                    classification['fit_score'],
-                    classification['money_score'],
-                    recency_score,
-                    classification['confidence']
-                )
-                
-                lead = Lead(
-                    workspace_id=workspace_id,
-                    message_id=message.id,
-                    type=classification['type'],
-                    category=classification.get('category', 'Other'),
-                    target_professions=classification.get('target_professions'),
-                    fit_score=classification['fit_score'],
-                    money_score=classification['money_score'],
-                    recency_score=recency_score,
-                    confidence=classification['confidence'],
-                    total_score=total_score,
-                    status="NEW",
-                )
-                
-                db.add(lead)
-                leads_created += 1
-                
-                # Track this hash to prevent duplicates in same batch
-                existing_text_hashes.add(text_hash)
+            lead = Lead(
+                workspace_id=workspace_id,
+                message_id=message.id,
+                type='TASK',  # Always TASK since LLM confirmed
+                category=llm_result.get('task_type', 'Other').capitalize(),
+                target_professions=classification.get('target_professions'),
+                fit_score=classification['fit_score'],
+                money_score=classification['money_score'],
+                recency_score=recency_score,
+                confidence=llm_result.get('confidence', 0.7),
+                total_score=total_score,
+                status="NEW",
+            )
+            
+            db.add(lead)
+            leads_created += 1
+            
+            # Track this hash to prevent duplicates in same batch
+            existing_text_hashes.add(text_hash)
         
         db.commit()
     
