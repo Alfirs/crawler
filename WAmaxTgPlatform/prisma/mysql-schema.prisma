@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_CONNECTION_URI")
+}
+
+model Conversation {
+  conversationId      String   @id @default(uuid())
+  channel             String
+  accountId           String
+  conversationRefType String
+  conversationRefId   String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  messages            Message[]
+
+  @@unique([accountId, channel, conversationRefType, conversationRefId], name: "accountId_channel_conversationRefType_conversationRefId")
+}
+
+model Message {
+  messageId            String               @id @default(uuid())
+  conversationId       String
+  direction            String
+  clientMessageId      String?
+  externalMessageRefId String?
+  kind                 String
+  content              Json
+  sender               Json
+  occurredAt           DateTime
+  createdAt            DateTime             @default(now())
+  deliveryState        MessageDeliveryState?
+  conversation         Conversation         @relation(fields: [conversationId], references: [conversationId])
+
+  @@index([conversationId])
+  @@index([clientMessageId])
+  @@index([externalMessageRefId])
+}
+
+model MessageDeliveryState {
+  messageId String  @id
+  status    String
+  isFinal   Boolean
+  reason    Json?
+  updatedAt DateTime
+  message   Message @relation(fields: [messageId], references: [messageId])
+}
+
+model ProcessedEvent {
+  dedupKey    String   @id
+  eventId     String
+  processedAt DateTime
+  resultRef   String?
+}

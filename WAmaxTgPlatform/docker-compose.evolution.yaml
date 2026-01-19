@@ -1,0 +1,118 @@
+version: "3.8"
+
+# Evolution API Stack for WAmaxEdu Platform
+# This provides the WhatsApp connection layer via unofficial Baileys library
+#
+# Usage:
+#   docker-compose -f docker-compose.evolution.yaml up -d
+#
+# After starting, access:
+#   - Evolution API: http://localhost:8080
+#   - Evolution Manager UI: http://localhost:8081
+
+services:
+  evolution-api:
+    container_name: wamaxedu_evolution_api
+    image: evoapicloud/evolution-api:latest
+    restart: unless-stopped
+    depends_on:
+      - evolution-postgres
+      - evolution-redis
+    ports:
+      - "8080:8080"
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - wamaxedu-network
+    env_file:
+      - .env.evolution
+    environment:
+      # Database connection (uses dedicated PostgreSQL)
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:evolution_password@evolution-postgres:5432/evolution?schema=public
+      # Redis cache
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://evolution-redis:6379/0
+      - CACHE_REDIS_PREFIX_KEY=wamaxedu
+      # Server config
+      - SERVER_PORT=8080
+      - SERVER_URL=http://localhost:8080
+      # Webhook to WAmaxEdu Platform (disabled until platform is running)
+      - WEBHOOK_GLOBAL_ENABLED=false
+      - WEBHOOK_GLOBAL_URL=http://host.docker.internal:3000/integrations/whatsapp/inbound/provider-webhook
+      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
+      - WEBHOOK_EVENTS_SEND_MESSAGE=true
+      - WEBHOOK_EVENTS_SEND_MESSAGE_UPDATE=true
+      - WEBHOOK_EVENTS_CONNECTION_UPDATE=true
+      - WEBHOOK_EVENTS_QRCODE_UPDATED=true
+      # Telemetry disabled for privacy
+      - TELEMETRY_ENABLED=false
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  evolution-manager:
+    container_name: wamaxedu_evolution_manager
+    image: evoapicloud/evolution-manager:latest
+    restart: unless-stopped
+    depends_on:
+      - evolution-api
+    ports:
+      - "8081:80"
+    networks:
+      - wamaxedu-network
+    environment:
+      - EVOLUTION_API_URL=http://evolution-api:8080
+
+  evolution-postgres:
+    container_name: wamaxedu_evolution_postgres
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=evolution
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=evolution_password
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    networks:
+      - wamaxedu-network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U evolution -d evolution" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  evolution-redis:
+    container_name: wamaxedu_evolution_redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - evolution_redis_data:/data
+    networks:
+      - wamaxedu-network
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  evolution_instances:
+    name: wamaxedu_evolution_instances
+  evolution_postgres_data:
+    name: wamaxedu_evolution_postgres_data
+  evolution_redis_data:
+    name: wamaxedu_evolution_redis_data
+
+networks:
+  wamaxedu-network:
+    name: wamaxedu-network
+    driver: bridge
