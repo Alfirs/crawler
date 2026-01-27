@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum Role {
+  ADMIN
+  MANAGER
+  EDITOR
+  VIEWER
+}
+
+enum ClientStatus {
+  STOPPED
+  WAITING_RENEWAL
+  REGISTRATION
+  ANALYSIS
+  IN_PROGRESS
+}
+
+enum SourceType {
+  VK
+  DIRECT
+  AVITO
+  META
+  TELEGRAM
+}
+
+enum DetailCategory {
+  PAINS
+  CREATIVES
+  AUDIENCES
+  HYPOTHESES
+  TEXTS
+}
+
+// Models
+
+model User {
+  id              String   @id @default(uuid())
+  fullName        String
+  login           String   @unique
+  passwordHash    String
+  role            Role
+  specialization  String?  // specialization/source for employees
+  
+  // Relations
+  assignments     ClientAssignment[]
+  createdAudit    AuditLog[]
+  createdStats    StatRow[]
+  createdDetails  DetailItem[]
+  uploadedFiles   FileAsset[]
+
+  targetAssignments Client[] @relation("Targetologist")
+  projectAssignments Client[] @relation("ProjectManager")
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  @@map("users")
+}
+
+model Client {
+  id              String   @id @default(uuid())
+  name            String
+  status          ClientStatus @default(IN_PROGRESS)
+  startedAt       DateTime @default(now())
+  
+  // Details
+  budget          Float?
+  eventDate       DateTime?
+  tg              String?
+  contactName     String?
+  phone           String?
+  business        String?
+  city            String?
+  hasCrm          Boolean @default(false)
+  funnel          String? @db.Text
+  interestScore   Int?    // 1-10
+  
+  // UTM
+  utmSource       String?
+  utmMedium       String?
+  utmContent      String?
+  utmTerm         String?
+
+  // Assignments (Direct relations for convenience, plus Many-to-Many for Access Control)
+  targetologistId String?
+  targetologist   User? @relation("Targetologist", fields: [targetologistId], references: [id])
+
+  projectManagerId String?
+  projectManager   User? @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  
+  // Access Control Assignments (Who sees this client)
+  assignments     ClientAssignment[]
+
+  // Content
+  sources         ClientSource[]
+  stats           StatRow[]
+  details         DetailItem[]
+  files           FileAsset[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  @@map("clients")
+}
+
+model ClientAssignment {
+  id        String   @id @default(uuid())
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([clientId, userId])
+  @@map("client_assignments")
+}
+
+model ClientSource {
+  id         String     @id @default(uuid())
+  clientId   String
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sourceType SourceType
+
+  @@map("client_sources")
+}
+
+model StatRow {
+  id          String   @id @default(uuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  date        DateTime @db.Date // Store only date component if possible, or midnight
+  
+  spend       Float    @default(0)
+  reach       Int      @default(0)
+  clicks      Int      @default(0)
+  leads       Int      @default(0)
+  sales       Int      @default(0)
+  revenue     Float    @default(0)
+  notes       String?  @db.Text
+
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId, date])
+  @@map("stat_rows")
+}
+
+model DetailItem {
+  id          String         @id @default(uuid())
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  category    DetailCategory
+  
+  title       String
+  description String?        @db.Text
+
+  createdById String?
+  createdBy   User?          @relation(fields: [createdById], references: [id])
+  
+  files       FileAsset[] // Linked files if any
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([clientId, category])
+  @@map("detail_items")
+}
+
+model FileAsset {
+  id           String      @id @default(uuid())
+  clientId     String
+  client       Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  detailItemId String?
+  detailItem   DetailItem? @relation(fields: [detailItemId], references: [id]) // Optional link to a detail item
+
+  originalName String
+  mimeType     String
+  size         Int
+  diskPath     String      // path relative to /uploads
+
+  uploadedById String
+  uploadedBy   User        @relation(fields: [uploadedById], references: [id])
+  
+  uploadedAt   DateTime    @default(now())
+
+  @@map("file_assets")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  action      String   // e.g. "CREATE", "UPDATE", "ASSIGN"
+  entityType  String   // "CLIENT", "STAT_ROW", "USER"
+  entityId    String
+  
+  beforeJson  Json?
+  afterJson   Json?
+  
+  ip          String?
+  userAgent   String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@map("audit_logs")
+}
