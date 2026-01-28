@@ -21,6 +21,9 @@ export const authOptions: NextAuthOptions = {
 
                 if (!user) return null
 
+                // Block deleted users from logging in
+                if (user.deletedAt) return null
+
                 const isPasswordValid = await compare(credentials.password, user.passwordHash)
 
                 if (!isPasswordValid) return null

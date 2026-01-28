@@ -9,18 +9,30 @@ export default async function EmployeesPage() {
     const session = await getServerSession(authOptions)
     if (!session) redirect("/login")
 
-    if (session.user.role !== Role.ADMIN && session.user.role !== Role.MANAGER) {
+    if (session.user.role !== Role.ADMIN && session.user.role !== Role.ADMIN_STAFF) {
         return <div>Forbidden</div>
     }
 
     const users = await prisma.user.findMany({
-        orderBy: { fullName: "asc" }
+        where: { deletedAt: null },
+        orderBy: { fullName: "asc" },
+        include: {
+            assignments: {
+                select: { clientId: true }
+            }
+        }
+    })
+
+    const clients = await prisma.client.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true, status: true },
+        orderBy: { name: "asc" }
     })
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
-            <EmployeeList users={users} />
+            <h1 className="text-3xl font-bold tracking-tight">Сотрудники</h1>
+            <EmployeeList users={users} clients={clients} currentUserRole={session.user.role} />
         </div>
     )
 }
