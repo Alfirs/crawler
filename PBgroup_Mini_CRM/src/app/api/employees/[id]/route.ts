@@ -50,6 +50,20 @@ export async function PATCH(
                             clientId: cid
                         }))
                     })
+
+                    // Bidirectional sync: set targetologistId or projectManagerId based on role
+                    const userRole = body.role || user.role
+                    if (userRole === 'TARGETOLOGIST') {
+                        await tx.client.updateMany({
+                            where: { id: { in: body.assignedClientIds } },
+                            data: { targetologistId: id }
+                        })
+                    } else if (userRole === 'PROJECT') {
+                        await tx.client.updateMany({
+                            where: { id: { in: body.assignedClientIds } },
+                            data: { projectManagerId: id }
+                        })
+                    }
                 }
             }
 
