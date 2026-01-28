@@ -23,7 +23,7 @@ export function EmployeesManager({ initialData }: { initialData: EmployeeWithCou
     const [fullName, setFullName] = useState("")
     const [login, setLogin] = useState("")
     const [password, setPassword] = useState("")
-    const [role, setRole] = useState<Role>(Role.EDITOR)
+    const [role, setRole] = useState<Role>(Role.TARGETOLOGIST)
     const [spec, setSpec] = useState("")
 
     const handleSubmit = async () => {

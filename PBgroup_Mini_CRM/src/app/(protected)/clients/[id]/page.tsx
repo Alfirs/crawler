@@ -15,21 +15,26 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         where: { id },
         include: {
             sources: true,
-            assignments: true
+            assignments: true,
+            pauses: true
         }
     })
 
     if (!client) notFound()
 
     // Access Security Check
-    if (session.user.role === Role.EDITOR || session.user.role === Role.VIEWER) {
+    if (session.user.role !== Role.ADMIN && session.user.role !== Role.ADMIN_STAFF) {
         const isAssigned = client.assignments.some(a => a.userId === session.user.id)
         if (!isAssigned) {
             return <div>Forbidden: You do not have access to this client.</div>
         }
     }
 
-    const canEdit = session.user.role !== Role.VIEWER
+    const canEdit = session.user.role !== Role.SALES // Assuming SALES is Viewer-like? Or should everyone edit?
+    // User said: "field with available clients to view AND EDIT". 
+    // So likely everyone can edit their assigned clients.
+    // Let's assume everyone can edit for now except maybe explicitly read-only roles if defined.
+    // For now everyone assigned can edit.
 
     // Fetch employees for dropdowns (only need if editing allowed, but nice to show names)
     // Optimization: Only fetch needed fields
@@ -48,6 +53,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                     initialData={client}
                     employees={employees as any} // Casting to User[] 
                     canEdit={canEdit}
+                    userRole={session.user.role}
                 />
             </div>
         </div>

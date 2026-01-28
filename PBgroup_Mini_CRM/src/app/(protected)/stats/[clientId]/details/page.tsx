@@ -6,6 +6,8 @@ import { notFound, redirect } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DetailList } from "./detail-list"
 
+import { DETAIL_CATEGORY_LABELS } from "@/lib/dict"
+
 export default async function ClientDetailsPage({ params }: { params: Promise<{ clientId: string }> }) {
     const session = await getServerSession(authOptions)
     if (!session) redirect("/login")
@@ -13,7 +15,7 @@ export default async function ClientDetailsPage({ params }: { params: Promise<{ 
     const { clientId } = await params
 
     // Access Security Check
-    if (session.user.role === Role.EDITOR || session.user.role === Role.VIEWER) {
+    if (session.user.role === Role.TARGETOLOGIST || session.user.role === Role.SALES) {
         const isAssigned = await prisma.clientAssignment.findUnique({
             where: { clientId_userId: { clientId, userId: session.user.id } }
         })
@@ -30,17 +32,14 @@ export default async function ClientDetailsPage({ params }: { params: Promise<{ 
         orderBy: { createdAt: "desc" }
     })
 
-    // Group by category? Or just filter in render
-    // Passing filtered arrays to components
-
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Details: {client.name}</h1>
+            <h1 className="text-2xl font-bold">Детали: {client.name}</h1>
 
             <Tabs defaultValue={DetailCategory.PAINS} className="w-full">
                 <TabsList className="grid w-full grid-cols-5 h-auto">
                     {Object.values(DetailCategory).map(cat => (
-                        <TabsTrigger key={cat} value={cat} className="text-xs sm:text-sm">{cat}</TabsTrigger>
+                        <TabsTrigger key={cat} value={cat} className="text-xs sm:text-sm">{DETAIL_CATEGORY_LABELS[cat]}</TabsTrigger>
                     ))}
                 </TabsList>
 
@@ -50,7 +49,7 @@ export default async function ClientDetailsPage({ params }: { params: Promise<{ 
                             items={allItems.filter(i => i.category === cat)}
                             category={cat}
                             clientId={clientId}
-                            isViewer={session.user.role === Role.VIEWER}
+                            isViewer={session.user.role === Role.SALES}
                         />
                     </TabsContent>
                 ))}

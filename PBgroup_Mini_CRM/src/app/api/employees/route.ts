@@ -11,7 +11,7 @@ export async function GET(req: Request) {
     const session = await getServerSession(authOptions)
     if (!session) return new NextResponse("Unauthorized", { status: 401 })
 
-    if (session.user.role !== Role.ADMIN && session.user.role !== Role.MANAGER) {
+    if (session.user.role !== Role.ADMIN && session.user.role !== Role.ADMIN_STAFF) {
         return new NextResponse("Forbidden", { status: 403 })
     }
 
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const session = await getServerSession(authOptions)
     if (!session) return new NextResponse("Unauthorized", { status: 401 })
 
-    if (session.user.role !== Role.ADMIN && session.user.role !== Role.MANAGER) {
+    if (session.user.role !== Role.ADMIN && session.user.role !== Role.ADMIN_STAFF) {
         return new NextResponse("Forbidden", { status: 403 })
     }
 
@@ -63,6 +63,15 @@ export async function POST(req: Request) {
                 specialization: body.specialization
             }
         })
+
+        if (body.assignedClientIds && body.assignedClientIds.length > 0) {
+            await prisma.clientAssignment.createMany({
+                data: body.assignedClientIds.map((cid: string) => ({
+                    userId: user.id,
+                    clientId: cid
+                }))
+            })
+        }
 
         await logAudit({
             userId: session.user.id,

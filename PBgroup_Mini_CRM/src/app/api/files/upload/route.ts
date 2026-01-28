@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     // Uploads are part of details (Creatives). So Editor CAN upload.
     // Viewer cannot. (4.0 VIEWER: only view).
 
-    if (session.user.role === Role.VIEWER) return new NextResponse("Forbidden", { status: 403 })
+    if (session.user.role === Role.SALES) return new NextResponse("Forbidden", { status: 403 })
 
     try {
         const formData = await req.formData()
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
         if (!clientId) return NextResponse.json({ error: "No clientId provided" }, { status: 400 })
 
         // If Editor, check Assignment
-        if (session.user.role === Role.EDITOR) {
+        if (session.user.role === Role.TARGETOLOGIST) {
             const isAssigned = await prisma.clientAssignment.findUnique({
                 where: { clientId_userId: { clientId: clientId, userId: session.user.id } }
             })

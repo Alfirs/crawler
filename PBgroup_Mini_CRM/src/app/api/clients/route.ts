@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     if (status) whereClause.status = status
 
     // Row-level security for EDITOR/VIEWER
-    if (session.user.role === Role.EDITOR || session.user.role === Role.VIEWER) {
+    if (session.user.role === Role.TARGETOLOGIST || session.user.role === Role.SALES) {
         whereClause.assignments = {
             some: {
                 userId: session.user.id,
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const session = await getServerSession(authOptions)
     if (!session) return new NextResponse("Unauthorized", { status: 401 })
 
-    if (session.user.role !== Role.ADMIN && session.user.role !== Role.MANAGER) {
+    if (session.user.role !== Role.ADMIN && session.user.role !== Role.ADMIN_STAFF) {
         return new NextResponse("Forbidden", { status: 403 })
     }
 
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
                 name: body.name,
                 status: body.status,
                 budget: body.budget,
-                eventDate: body.eventDate,
+                paymentDate: body.paymentDate,
                 tg: body.tg,
                 contactName: body.contactName,
                 phone: body.phone,

@@ -22,7 +22,7 @@ export async function checkClientAccess(session: Session | null, clientId: strin
 
     const role = session.user.role as Role
 
-    if (role === 'ADMIN' || role === 'MANAGER') return true
+    if (role === 'ADMIN' || role === 'ADMIN_STAFF') return true
 
     // For EDITOR / VIEWER, check assignment
     const assignment = await db.clientAssignment.findUnique({
@@ -45,7 +45,7 @@ export function getAccessibleClientsWhere(session: Session | null) {
 
     const role = session.user.role as Role
 
-    if (role === 'ADMIN' || role === 'MANAGER') {
+    if (role === 'ADMIN' || role === 'ADMIN_STAFF') {
         return {} // No filter, return all
     }
 

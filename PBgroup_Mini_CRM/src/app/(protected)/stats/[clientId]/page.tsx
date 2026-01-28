@@ -12,7 +12,7 @@ export default async function ClientStatsPage({ params }: { params: Promise<{ cl
     const { clientId } = await params
 
     // Access Security Check
-    if (session.user.role === Role.EDITOR || session.user.role === Role.VIEWER) {
+    if (session.user.role === Role.TARGETOLOGIST || session.user.role === Role.SALES) {
         const isAssigned = await prisma.clientAssignment.findUnique({
             where: { clientId_userId: { clientId, userId: session.user.id } }
         })
@@ -24,16 +24,17 @@ export default async function ClientStatsPage({ params }: { params: Promise<{ cl
 
     const stats = await prisma.statRow.findMany({
         where: { clientId },
-        orderBy: { date: "desc" }
+        orderBy: { date: "asc" }
     })
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Stats: {client.name}</h1>
+            <h1 className="text-2xl font-bold">Статистика: {client.name}</h1>
             <StatTable
                 rows={stats}
                 clientId={clientId}
-                isViewer={session.user.role === Role.VIEWER}
+                isViewer={session.user.role === Role.SALES}
+                userRole={session.user.role}
             />
         </div>
     )

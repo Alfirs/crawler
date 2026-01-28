@@ -24,20 +24,20 @@ export function Sidebar() {
     const links = [
         {
             href: "/clients",
-            label: "Clients",
+            label: "Клиенты",
             icon: Users,
         },
         {
             href: "/stats",
-            label: "Statistics",
+            label: "Статистика",
             icon: BarChart,
         },
     ]
 
-    if (role === Role.ADMIN || role === Role.MANAGER) {
+    if (role === Role.ADMIN || role === Role.ADMIN_STAFF) {
         links.push({
             href: "/employees",
-            label: "Employees",
+            label: "Сотрудники",
             icon: UserCog,
         })
     }
@@ -72,7 +72,7 @@ export function Sidebar() {
             <div className="p-4 border-t dark:border-zinc-800">
                 <Button variant="outline" className="w-full gap-2" onClick={() => signOut()}>
                     <LogOut className="h-4 w-4" />
-                    Sign Out
+                    Выйти
                 </Button>
             </div>
         </div>

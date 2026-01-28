@@ -63,7 +63,7 @@ export function ClientTable<TData, TValue>({
 
     const router = useRouter()
     const { data: session } = useSession()
-    const canCreate = session?.user?.role === Role.ADMIN || session?.user?.role === Role.MANAGER
+    const canCreate = session?.user?.role === Role.ADMIN || session?.user?.role === Role.ADMIN_STAFF
 
     const table = useReactTable({
         data,
@@ -91,13 +91,13 @@ export function ClientTable<TData, TValue>({
             })
             if (!res.ok) throw new Error("Failed")
             const client = await res.json()
-            toast.success("Client created")
+            toast.success("Клиент создан")
             setIsCreateOpen(false)
             setNewClientName("")
             router.push(`/clients/${client.id}`)
             router.refresh()
         } catch (e) {
-            toast.error("Error creating client")
+            toast.error("Ошибка при создании клиента")
         } finally {
             setIsCreating(false)
         }
@@ -108,7 +108,7 @@ export function ClientTable<TData, TValue>({
             <div className="flex items-center py-4 justify-between gap-4">
                 <div className="flex gap-2 flex-col sm:flex-row flex-1">
                     <Input
-                        placeholder="Filter names..."
+                        placeholder="Фильтр по имени..."
                         value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
                         onChange={(event) =>
                             table.getColumn("name")?.setFilterValue(event.target.value)
@@ -123,10 +123,10 @@ export function ClientTable<TData, TValue>({
                         }
                     >
                         <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Status" />
+                            <SelectValue placeholder="Статус" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="ALL">All Statuses</SelectItem>
+                            <SelectItem value="ALL">Все статусы</SelectItem>
                             {Object.values(ClientStatus).map(s => (
                                 <SelectItem key={s} value={s}>{s}</SelectItem>
                             ))}
@@ -137,16 +137,16 @@ export function ClientTable<TData, TValue>({
                 {canCreate && (
                     <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                         <DialogTrigger asChild>
-                            <Button>Add Client</Button>
+                            <Button>Добавить клиента</Button>
                         </DialogTrigger>
                         <DialogContent>
                             <DialogHeader>
-                                <DialogTitle>Add New Client</DialogTitle>
+                                <DialogTitle>Новый клиент</DialogTitle>
                             </DialogHeader>
                             <div className="grid gap-4 py-4">
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label htmlFor="name" className="text-right">
-                                        Name
+                                        Имя
                                     </Label>
                                     <Input
                                         id="name"
@@ -158,7 +158,7 @@ export function ClientTable<TData, TValue>({
                             </div>
                             <DialogFooter>
                                 <Button onClick={handleCreate} disabled={!newClientName || isCreating}>
-                                    {isCreating ? "Creating..." : "Create"}
+                                    {isCreating ? "Создание..." : "Создать"}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -202,7 +202,7 @@ export function ClientTable<TData, TValue>({
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                                    No results.
+                                    Нет данных.
                                 </TableCell>
                             </TableRow>
                         )}
@@ -216,7 +216,7 @@ export function ClientTable<TData, TValue>({
                     onClick={() => table.previousPage()}
                     disabled={!table.getCanPreviousPage()}
                 >
-                    Previous
+                    Назад
                 </Button>
                 <Button
                     variant="outline"
@@ -224,7 +224,7 @@ export function ClientTable<TData, TValue>({
                     onClick={() => table.nextPage()}
                     disabled={!table.getCanNextPage()}
                 >
-                    Next
+                    Вперед
                 </Button>
             </div>
         </div>

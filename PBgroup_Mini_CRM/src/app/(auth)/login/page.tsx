@@ -42,13 +42,13 @@ export default function LoginPage() {
             })
 
             if (result?.error) {
-                toast.error("Invalid credentials")
+                toast.error("Неверный логин или пароль")
             } else {
                 router.push("/clients")
                 router.refresh()
             }
         } catch (error) {
-            toast.error("Something went wrong")
+            toast.error("Что-то пошло не так")
         } finally {
             setIsLoading(false)
         }
@@ -58,7 +58,7 @@ export default function LoginPage() {
         <div className="flex min-h-screen items-center justify-center bg-slate-100 p-4">
             <Card className="w-full max-w-md">
                 <CardHeader>
-                    <CardTitle className="text-2xl text-center">PBgroup CRM Login</CardTitle>
+                    <CardTitle className="text-2xl text-center">Вход в PBgroup CRM</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
@@ -68,7 +68,7 @@ export default function LoginPage() {
                                 name="login"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Login</FormLabel>
+                                        <FormLabel>Логин</FormLabel>
                                         <FormControl>
                                             <Input placeholder="admin" {...field} />
                                         </FormControl>
@@ -81,7 +81,7 @@ export default function LoginPage() {
                                 name="password"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Password</FormLabel>
+                                        <FormLabel>Пароль</FormLabel>
                                         <FormControl>
                                             <Input type="password" placeholder="******" {...field} />
                                         </FormControl>
@@ -90,7 +90,7 @@ export default function LoginPage() {
                                 )}
                             />
                             <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading ? "Signing in..." : "Sign In"}
+                                {isLoading ? "Вход..." : "Войти"}
                             </Button>
                         </form>
                     </Form>

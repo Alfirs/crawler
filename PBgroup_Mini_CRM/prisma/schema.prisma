@@ -8,11 +8,13 @@ datasource db {
 }
 
 // Enums
+// Enums
 enum Role {
   ADMIN
-  MANAGER
-  EDITOR
-  VIEWER
+  PROJECT
+  TARGETOLOGIST
+  SALES
+  ADMIN_STAFF
 }
 
 enum ClientStatus {
@@ -74,7 +76,7 @@ model Client {
   
   // Details
   budget          Float?
-  eventDate       DateTime?
+  paymentDate     DateTime? // Previously eventDate
   tg              String?
   contactName     String?
   phone           String?
@@ -83,6 +85,28 @@ model Client {
   hasCrm          Boolean @default(false)
   funnel          String? @db.Text
   interestScore   Int?    // 1-10
+  
+  // New Client Card Fields (Survey)
+  email                String?
+  socialLinks          String?   // Links to site, vk, etc
+  registrationPhone    String?   // Phone for SMS code
+  adAccountEmail       String?   // Email for ad cabinet
+  
+  audience             String?   @db.Text // Who buys/Target audience
+  uniqueSellingPoints  String?   @db.Text // Business advantages
+  clientGoals          String?   @db.Text // Desired results
+  advertisingFocus     String?   @db.Text // Focus direction
+  competitors          String?   @db.Text // Competitors
+  offers               String?   @db.Text // Promotions/Offers
+  clientPains          String?   @db.Text // Fears/Pains
+  serviceDeliveryTime  String?   // Fast delivery time
+  
+  geoRadius            String?   // Address/Radius
+  assetsLink           String?   // Link to content (Yandex Disk etc)
+  
+  legalName            String?   // Entity name or FIO
+  inn                  String?   // INN
+  legalAddress         String?   // Legal Address
   
   // UTM
   utmSource       String?
@@ -105,12 +129,30 @@ model Client {
   stats           StatRow[]
   details         DetailItem[]
   files           FileAsset[]
+  pauses          ClientPause[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   deletedAt       DateTime?
 
   @@map("clients")
+}
+
+model ClientPause {
+  id        String    @id @default(uuid())
+  clientId  String
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  startDate DateTime
+  endDate   DateTime?
+  comment   String?
+  
+  createdById String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("client_pauses")
 }
 
 model ClientAssignment {
@@ -155,6 +197,7 @@ model StatRow {
   updatedAt   DateTime @updatedAt
 
   @@index([clientId, date])
+  @@unique([clientId, date])
   @@map("stat_rows")
 }
 

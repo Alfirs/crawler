@@ -18,7 +18,7 @@ export async function GET(
     const category = searchParams.get("category") as DetailCategory | null
 
     // Access check
-    if (session.user.role === Role.EDITOR || session.user.role === Role.VIEWER) {
+    if (session.user.role === Role.TARGETOLOGIST || session.user.role === Role.SALES) {
         const isAssigned = await prisma.clientAssignment.findUnique({
             where: { clientId_userId: { clientId: id, userId: session.user.id } }
         })
@@ -46,11 +46,11 @@ export async function POST(
     const session = await getServerSession(authOptions)
     if (!session) return new NextResponse("Unauthorized", { status: 401 })
 
-    if (session.user.role === Role.VIEWER) return new NextResponse("Forbidden", { status: 403 })
+    if (session.user.role === Role.SALES) return new NextResponse("Forbidden", { status: 403 })
 
     const { id } = await params
 
-    if (session.user.role === Role.EDITOR) {
+    if (session.user.role === Role.TARGETOLOGIST) {
         const isAssigned = await prisma.clientAssignment.findUnique({
             where: { clientId_userId: { clientId: id, userId: session.user.id } }
         })

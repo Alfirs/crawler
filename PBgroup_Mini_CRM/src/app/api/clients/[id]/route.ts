@@ -8,9 +8,7 @@ import { Role } from "@prisma/client"
 
 export async function GET(
     req: Request,
-    { params }: { params: Promise<{ id: string }> } // Params is a Promise in Next.js 15+, but I am using 16.1.4, which treats params as Promise in newer versions? Wait. Next 14 App Router params are plain objects. But Next 15+ they are Promises. I'm on Next 16. So I should AWAIT params.
-    // Actually, let's play safe. If I await params, I need to check Next.js version specifics. Next 16 is Canary? Or is it 15 stable? "next": "16.1.4". That must be newest.
-    // In Next.js 15, params are async. So I should await.
+    { params }: { params: Promise<{ id: string }> }
 ) {
     const session = await getServerSession(authOptions)
     if (!session) return new NextResponse("Unauthorized", { status: 401 })
@@ -30,10 +28,9 @@ export async function GET(
     if (!client) return new NextResponse("Not Found", { status: 404 })
 
     // Access check
-    if (session.user.role === Role.EDITOR || session.user.role === Role.VIEWER) {
+    if (session.user.role === Role.TARGETOLOGIST || session.user.role === Role.SALES) {
         const isAssigned = client.assignments.some(a => a.userId === session.user.id)
         if (!isAssigned) {
-            // Log forbidden attempt?
             await logAudit({
                 userId: session.user.id,
                 action: "ACCESS_DENIED",
@@ -57,12 +54,12 @@ export async function PATCH(
     const { id } = await params
 
     // Viewer cannot edit
-    if (session.user.role === Role.VIEWER) {
+    if (session.user.role === Role.SALES) {
         return new NextResponse("Forbidden", { status: 403 })
     }
 
     // Access check for Editor
-    if (session.user.role === Role.EDITOR) {
+    if (session.user.role === Role.TARGETOLOGIST) {
         const assignment = await prisma.clientAssignment.findUnique({
             where: { clientId_userId: { clientId: id, userId: session.user.id } }
         })
@@ -85,18 +82,42 @@ export async function PATCH(
         // Helper: get current state for log
         const current = await prisma.client.findUnique({ where: { id } })
 
-        const updated = await prisma.client.update({
-            where: { id },
-            data: {
-                ...body,
-                sources: undefined, // Handle sources separately if passed? 
-                // If sources passed, delete old and create new? Or just append?
-                // Simple approach: if sources is in body, replace.
+        // Detect if assignment fields were explicitly set (including to null)
+        const targetologistChanged = 'targetologistId' in json
+        const projectManagerChanged = 'projectManagerId' in json
+
+        const updated = await prisma.$transaction(async (tx) => {
+            // Update client with the new data
+            const client = await tx.client.update({
+                where: { id },
+                data: {
+                    ...body,
+                    sources: undefined, // Handle sources separately
+                }
+            })
+
+            // Handle targetologist assignment (when new value is set, not null)
+            if (targetologistChanged && body.targetologistId) {
+                await tx.clientAssignment.upsert({
+                    where: { clientId_userId: { clientId: id, userId: body.targetologistId } },
+                    create: { clientId: id, userId: body.targetologistId },
+                    update: {}
+                })
             }
+
+            // Handle project manager assignment (when new value is set, not null)
+            if (projectManagerChanged && body.projectManagerId) {
+                await tx.clientAssignment.upsert({
+                    where: { clientId_userId: { clientId: id, userId: body.projectManagerId } },
+                    create: { clientId: id, userId: body.projectManagerId },
+                    update: {}
+                })
+            }
+
+            return client
         })
 
         if (body.sources) {
-            // Transaction to replace sources?
             await prisma.$transaction([
                 prisma.clientSource.deleteMany({ where: { clientId: id } }),
                 prisma.clientSource.createMany({
@@ -119,4 +140,38 @@ export async function PATCH(
         console.error(error)
         return new NextResponse("Invalid Request", { status: 400 })
     }
+}
+
+export async function DELETE(
+    req: Request,
+    { params }: { params: Promise<{ id: string }> }
+) {
+    const session = await getServerSession(authOptions)
+    if (!session) return new NextResponse("Unauthorized", { status: 401 })
+
+    // Only Admin or Admin Staff can delete
+    if (session.user.role !== Role.ADMIN && session.user.role !== Role.ADMIN_STAFF) {
+        return new NextResponse("Forbidden", { status: 403 })
+    }
+
+    const { id } = await params
+
+    const client = await prisma.client.findUnique({ where: { id } })
+    if (!client) return new NextResponse("Not Found", { status: 404 })
+
+    const updated = await prisma.client.update({
+        where: { id },
+        data: { deletedAt: new Date() }
+    })
+
+    await logAudit({
+        userId: session.user.id,
+        action: "DELETE_CLIENT",
+        entityType: "CLIENT",
+        entityId: id,
+        before: client,
+        after: updated
+    })
+
+    return NextResponse.json(updated)
 }

@@ -11,9 +11,9 @@ export default async function ClientsPage() {
     const session = await getServerSession(authOptions)
     if (!session) redirect("/login")
 
-    const whereClause: any = {}
+    const whereClause: any = { deletedAt: null }
 
-    if (session.user.role === Role.EDITOR || session.user.role === Role.VIEWER) {
+    if (session.user.role === Role.TARGETOLOGIST || session.user.role === Role.SALES) {
         whereClause.assignments = {
             some: {
                 userId: session.user.id,
@@ -25,7 +25,10 @@ export default async function ClientsPage() {
         where: whereClause,
         include: {
             targetologist: { select: { fullName: true } },
-            assignments: { include: { user: { select: { fullName: true } } } }
+            projectManager: { select: { fullName: true } },
+            assignments: { include: { user: { select: { fullName: true } } } },
+            sources: { select: { sourceType: true } },
+            pauses: true
         },
         orderBy: { createdAt: "desc" },
     })
@@ -33,7 +36,7 @@ export default async function ClientsPage() {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Клиенты</h1>
             </div>
             <ClientTable columns={columns as any} data={clients as any} />
         </div>
