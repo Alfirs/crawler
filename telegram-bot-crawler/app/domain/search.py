@@ -235,9 +235,9 @@ class SearchService:
         # 1. Try Local DB (Official Lists)
         if tnved_code and len(tnved_code) >= 4:
             # Find rules where prefix matches the start of our code
-            # e.g. Rule '6204' matches Code '620432...'
+            # We require at least 4 digits for a match to avoid overly broad Chapter matches (like '85')
             rows = self.db.fetchall(
-                "SELECT doc_type, product_name, standard_doc FROM certification_rules WHERE ? LIKE tnved_prefix || '%' ORDER BY length(tnved_prefix) DESC LIMIT 5",
+                "SELECT doc_type, product_name, standard_doc FROM certification_rules WHERE ? LIKE tnved_prefix || '%' AND length(tnved_prefix) >= 4 ORDER BY length(tnved_prefix) DESC LIMIT 5",
                 (tnved_code,)
             )
             if rows:

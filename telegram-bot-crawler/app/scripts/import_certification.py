@@ -12,18 +12,35 @@ FILES = {
 def clean_code(code_str):
     if pd.isna(code_str):
         return []
-    # Remove "из" prefix
-    code_str = str(code_str).replace("из ", "").replace("Код ТН ВЭД ", "").strip()
     
-    # Split by comma or semicolon
-    parts = re.split(r'[;,]', code_str)
+    # 1. Initial cleanup
+    s = str(code_str).lower()
+    # Remove common noise words
+    s = s.replace("из ", "").replace("код тн вэд ", "").replace("коды", "").replace("тн вэд ", "")
+    
+    # 2. Split by hard separators (comma, semicolon, newline, tab)
+    # We DON'T split by space yet because codes like "8504 10" are common.
+    parts = re.split(r'[;,\n\r\t]+', s)
+    
     cleaned = []
     for p in parts:
-        # Keep only digits
-        digits = re.sub(r'\D', '', p)
-        if len(digits) >= 2: # At least 2 digits to make sense
-            cleaned.append(digits)
-    return cleaned
+        p = p.strip()
+        if not p:
+            continue
+            
+        # 3. Handle entries that might still contain multiple codes separated by multiple spaces
+        # but normalize those that look like a single code with spaces "8504 10"
+        # If there's a big gap (2+ spaces), it's probably different codes.
+        sub_parts = re.split(r'\s{2,}', p)
+        for sp in sub_parts:
+            # Remove all remaining spaces and non-digits
+            digits = re.sub(r'\D', '', sp)
+            if len(digits) >= 2:
+                # Basic sanity check: codes are usually 2, 4, 6 or 10 digits
+                # But we'll keep anything >= 2 for now.
+                cleaned.append(digits)
+                
+    return list(set(cleaned))
 
 def run_import():
     print("Starting import...")
