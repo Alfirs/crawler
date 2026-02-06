@@ -1,0 +1,11 @@
+defaults:
+  cargo_rate_per_kg: 4.0
+  cargo_rate_per_m3: 220.0
+  official_customs_duty_pct: 0.1
+  vat_pct: 0.2
+  broker_fee: 60.0
+  cargo_min_charge: 120.0
+  official_min_charge: 80.0
+  eta_cargo_days: "12-18"
+  eta_official_days: "18-28"
+categories: {}
