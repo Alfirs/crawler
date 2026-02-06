@@ -221,3 +221,39 @@ class SearchService:
             print(f"[LLM] Error: {e}")
             return []
 
+    async def check_certification(self, product_name: str, tnved_code: str | None) -> str:
+        """
+        Ask LLM about certification requirements (TR TS, Declaration, etc).
+        """
+        if not self.aclient:
+             return "⚠️ API ключ для AI не настроен. Проверка сертификации недоступна."
+
+        model = self.config.openrouter_model or "gpt-4o-mini"
+        code_str = f" (Код ТН ВЭД: {tnved_code})" if tnved_code else ""
+        query = f"{product_name}{code_str}"
+        
+        prompt = (
+            f"Ты — эксперт по сертификации продукции в ЕАЭС (Россия, Беларусь, Казахстан).\n"
+            f"Пользователь хочет импортировать товар: «{query}».\n\n"
+            "Твоя задача — определить, какие разрешительные документы требуются.\n\n"
+            "1. Подлежит ли товар обязательной сертификации или декларированию соответствия (ТР ТС)?\n"
+            "2. Укажи конкретные номера Технических Регламентов (например, ТР ТС 004/2011, 017/2011 и т.д.).\n"
+            "3. Если товар не подлежит обязательной сертификации, напиши это (возможно, нужно Отказное письмо).\n\n"
+            "Отвечай кратко, по делу, с форматированием (Bold, списки).\n"
+            "В конце добавь ссылки на реестры:\n"
+            "- [Единый реестр сертификатов и деклараций](https://pub.fsa.gov.ru/rss/certificate)\n"
+            "- [Технические регламенты ЕАЭС](https://eec.eaeunion.org/comission/department/deptexreg/tr/TR_general.php)"
+        )
+        
+        try:
+            print(f"[LLM-Cert] Calling {model} for: '{query}'")
+            resp = await self.aclient.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.2
+            )
+            return resp.choices[0].message.content
+        except Exception as e:
+            print(f"[LLM-Cert] Error: {e}")
+            return "⚠️ Ошибка при запросе к AI сервису сертификации. Попробуйте позже."
+

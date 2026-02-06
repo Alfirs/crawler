@@ -109,6 +109,32 @@ class FlowEngine:
                         keyboard=KeyboardType.INLINE, # Search results usually inline
                         screen_type=ScreenType.MENU
                     )
+
+        if node_id == "node_cert_result":
+            tnved_code = session.data.get("tnved_code")
+            product = session.data.get("product_category", "Товар")
+            
+            # Check cache in session
+            cached_code = session.data.get("cert_result_code")
+            cached_res = session.data.get("cert_result")
+            
+            text = "⏳ Ошибка получения данных"
+            
+            if cached_code == tnved_code and cached_res:
+                text = cached_res
+            elif self.search_service:
+                # Fetch from LLM
+                text = await self.search_service.check_certification(product, tnved_code)
+                session.data["cert_result"] = text
+                session.data["cert_result_code"] = tnved_code
+            
+            return RenderedScreen(
+                node_id=node.id,
+                text=text,
+                buttons=node.buttons,
+                keyboard=KeyboardType.INLINE,
+                screen_type=ScreenType.MENU
+            )
                     
         keyboard = self._keyboard_for_node(node)
         return RenderedScreen(
@@ -182,6 +208,20 @@ class FlowEngine:
                         session.data["name"] = action_value
                         # Stay on search result, but will re-render with new query
                         transitioned = True
+
+            # Handle clicking on dynamic TNVED code buttons (e.g., "Код 6204530000")
+            elif current_node.id == "node_search_result" and action_type == ActionType.CLICK:
+                if action_value.startswith("Код "):
+                    # Extract the 10-digit code from button text
+                    code = action_value.replace("Код ", "").strip()
+                    if len(code) == 10 and code.isdigit():
+                        session.data["tnved_code"] = code
+                        session.data["selected_code"] = code
+                        # Try to get duty from local DB or use default
+                        session.data["duty_pct"] = session.data.get("duty_pct", 0.1)
+                        session.current_node_id = "node_enter_price"
+                        transitioned = True
+                        print(f"[Engine] Selected code {code}, proceeding to price entry")
 
             if not transitioned:
                 if current_node.screen_type == ScreenType.INPUT_REQUIRED:
@@ -264,31 +304,41 @@ class FlowEngine:
             volume = (l * w * h) / 1_000_000.0
 
         value = _safe_float(session.data.get("goods_value"))
-        if value <= 0 or (weight <= 0 and volume <= 0):
+        delivery_cost_usd = _safe_float(session.data.get("delivery_cost_usd"))
+        weight_gross_kg = _safe_float(session.data.get("weight_gross_kg"))
+        weight_net_kg = _safe_float(session.data.get("weight_net_kg"))
+        
+        # Fallback logic if new fields missing (backward compat)
+        if weight_gross_kg <= 0 and weight > 0:
+            weight_gross_kg = weight
+        if weight_net_kg <= 0 and weight_gross_kg > 0:
+            weight_net_kg = weight_gross_kg # Assume net = gross if not specified
+            
+        if value <= 0 or (weight_gross_kg <= 0 and volume <= 0):
             return None
 
         # Enrichment: If we have a TNVED code, try to find duty/category
         tnved_code = session.data.get("tnved_code")
+        # Ensure duty_pct is available
+        duty_pct = _safe_float(session.data.get("duty_pct"))
+        
         if tnved_code and self.search_service:
-            # Quick lookup
-            res = await self.search_service.search(str(tnved_code))
-            if res:
-                # Use the first exact match or best guess
-                best = res[0]
-                # Store duty explicitly for calculator if needed, or map to category
-                # For now, let's just make sure "product_category" is set if missing
-                if not session.data.get("product_category"):
-                    session.data["product_category"] = best.description[:50]
-                # TODO: Pass duty_pct to calculator if it supports it override
-                
+            # Quick lookup to ensure we have category description if missing
+            if not session.data.get("product_category"):
+                 res = await self.search_service.search(str(tnved_code))
+                 if res:
+                     session.data["product_category"] = res[0].description[:50]
+
         data = CalculatorInput(
-            product_category=_safe_text(session.data.get("product_category")),
-            weight_kg=weight,
+            goods_value_cny=value,
+            delivery_cost_usd=delivery_cost_usd,
+            weight_gross_kg=weight_gross_kg,
+            weight_net_kg=weight_net_kg,
             volume_m3=volume,
-            goods_value=value,
-            origin=_safe_text(session.data.get("origin")),
-            destination=_safe_text(session.data.get("destination")),
-            urgency=_safe_text(session.data.get("urgency")),
+            duty_pct=duty_pct,
+            duty_per_kg_eur=None, # Future: extract from DB if exists
+            vat_pct=0.20, # Default 20% VAT (RF standard)
+            tnved_code=str(tnved_code) if tnved_code else None
         )
         result = await self.calculator.calculate(data)
         return self.calculator.render(result)
@@ -418,6 +468,10 @@ def _safe_text(value: Any) -> str | None:
 def _field_for_input(input_type: InputType, prompt: str) -> str:
     if input_type == InputType.WEIGHT_KG:
         return "weight_kg"
+    if input_type == InputType.WEIGHT_GROSS:
+        return "weight_gross_kg"
+    if input_type == InputType.WEIGHT_NET:
+        return "weight_net_kg"
     if input_type == InputType.VOLUME_M3:
         return "volume_m3"
     if input_type == InputType.LENGTH_CM:
@@ -430,6 +484,8 @@ def _field_for_input(input_type: InputType, prompt: str) -> str:
         return "quantity"
     if input_type == InputType.PRICE_VALUE:
         return "goods_value"
+    if input_type == InputType.DELIVERY_COST:
+        return "delivery_cost_usd"
     if input_type == InputType.CITY:
         return "city"
     if input_type == InputType.NAME:
