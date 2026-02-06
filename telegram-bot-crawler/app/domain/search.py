@@ -232,6 +232,34 @@ class SearchService:
         code_str = f" (Код ТН ВЭД: {tnved_code})" if tnved_code else ""
         query = f"{product_name}{code_str}"
         
+        # 1. Try Local DB (Official Lists)
+        if tnved_code and len(tnved_code) >= 4:
+            # Find rules where prefix matches the start of our code
+            # e.g. Rule '6204' matches Code '620432...'
+            rows = self.db.fetchall(
+                "SELECT doc_type, product_name, standard_doc FROM certification_rules WHERE ? LIKE tnved_prefix || '%' ORDER BY length(tnved_prefix) DESC LIMIT 5",
+                (tnved_code,)
+            )
+            if rows:
+                lines = ["✅ **Найдено в официальных перечнях РФ:**"]
+                seen = set()
+                for r in rows:
+                    key = (r['doc_type'], r['product_name'])
+                    if key in seen: continue
+                    seen.add(key)
+                    
+                    icon = "📜" if "Декларация" in r['doc_type'] else "🛡️"
+                    lines.append(f"{icon} **{r['doc_type']}**: {r['product_name']}")
+                    if r['standard_doc']:
+                         # Shorten doc string if too long
+                         doc_short = r['standard_doc'][:100] + "..." if len(r['standard_doc']) > 100 else r['standard_doc']
+                         lines.append(f"   📄 _{doc_short}_")
+                
+                lines.append("\n👉 **Проверить точно:**")
+                lines.append("[Единый реестр ЕЭК](https://eec.eaeunion.org/comission/department/deptexreg/tr/TR_general.php)")
+                return "\n".join(lines)
+
+        # 2. AI Fallback
         prompt = (
             f"Ты — профессиональный консультант по ВЭД. Твоя задача — определить ВЕРОЯТНЫЕ требования к сертификации.\n"
             f"Товар: «{query}».\n\n"
@@ -239,12 +267,13 @@ class SearchService:
             "2. Укажи форму подтверждения: Сертификат или Декларация (если очевидно).\n"
             "3. Если товар скорее всего НЕ подлежит обязательной сертификации (или нужно Отказное письмо), укажи это.\n\n"
             "ВАЖНО: Ты должен явно предупредить, что список может быть неполным.\n"
-            "ОБЯЗАТЕЛЬНО начни ответ с фразы: **«⚠️ Справочная информация. Требует проверки в органе по сертификации.»**\n\n"
+            "ОБЯЗАТЕЛЬНО начни ответ с фразы: **«⚠️ Справочная информация (AI). В базе официальных перечней точного совпадения не найдено.»**\n\n"
             "Используй форматирование (жирный шрифт, списки).\n"
             "В конце ответа ВСЕГДА добавляй:\n"
             "👉 **Где проверить точно:**\n"
             "[Единый реестр ЕЭК](https://eec.eaeunion.org/comission/department/deptexreg/tr/TR_general.php) | [Реестр Росаккредитации](https://pub.fsa.gov.ru/rss/certificate)"
         )
+
         
         try:
             print(f"[LLM-Cert] Calling {model} for: '{query}'")
