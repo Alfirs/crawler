@@ -1,39 +1,65 @@
 # cn_import_clone
 
-This project is a clone of `@cn_import_bot`, originally built with crawler artifacts.
-It is now the main project in this repository.
+Telegram бот для расчёта таможенных пошлин при импорте товаров в Россию.
 
-## Features
-- Recreates the observable flow of the target bot.
-- Uses `DeepSeek` (NeuroAPI) for semantic understanding if enabled.
-- Loads graph/screens from `output_cn_import` (or where configured).
+## Возможности
 
-## Quick start
+- Поиск кодов ТН ВЭД по названию товара (локальная база + GPT-4o)
+- Расчёт таможенных платежей (пошлина, НДС)
+- Курсы валют в реальном времени (ЦБ РФ)
+- Административные команды для настройки ставок
 
-1) The `.env` file should be configured with `BOT_TOKEN` and `OPENROUTER` keys.
-2) Install dependencies:
+## Быстрый старт
 
+1. Настройте `.env`:
+   ```
+   BOT_TOKEN=your_telegram_bot_token
+   OPENROUTER_API_KEY=your_api_key
+   ```
+
+2. Установите зависимости:
+   ```bash
+   pip install -e .[dev]
+   ```
+
+3. **Импортируйте базу ТН ВЭД:**
+   ```bash
+   # Скачайте Excel с https://www.tws.by/tws/tnved/download
+   # Сохраните как TWS_TNVED_YYYY-MM-DD.xlsx
+   python import_excel_tnved.py
+   ```
+
+4. Запустите бота:
+   ```bash
+   python -m app.main
+   ```
+
+## База ТН ВЭД
+
+База кодов загружается из Excel-файла (tws.by):
+
+📥 **Скачать:** https://www.tws.by/tws/tnved/download
+
+После скачивания:
 ```bash
-pip install -e .[dev]
+python import_excel_tnved.py
 ```
 
-3) Run the bot:
+Это создаст/обновит `data.db` с 13,000+ кодами и актуальными ставками.
+
+## Админ-команды
+
+- `/admin` — список команд
+- `/rates` — текущие ставки
+- `/set_rate <key> <value>` — изменить ставку
+- `/export <user_id>` — экспорт логов сессии
+
+## Тесты
 
 ```bash
-python -m app.main
-```
-
-## Admin commands
-
-- `/admin` shows available admin commands.
-- `/rates` shows the current rate configuration.
-- `/set_rate <key> <value>` updates a default rate.
-- `/set_rate <category.key> <value>` updates a category override.
-- `/export <user_id>` exports session logs as JSON.
-
-## Tests
-
-```bash
-# Run tests
 pytest
 ```
+
+## Документация
+
+- [Импорт ТН ВЭД](docs/TNVED_IMPORT.md) — подробная документация
